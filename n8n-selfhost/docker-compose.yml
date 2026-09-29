@@ -1,0 +1,20 @@
+# Self-hosted n8n Community Edition: no execution limits.
+# Start:  docker compose up -d      Stop: docker compose down
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      # Only reachable from the server itself. Open it from your computer through an SSH tunnel (see README).
+      - "127.0.0.1:5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=Asia/Tashkent
+      - TZ=Asia/Tashkent
+      - N8N_RUNNERS_ENABLED=true
+      # Keep 14 days of execution logs so the disk doesn't fill up with a 15-minute schedule.
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=336
+    volumes:
+      - n8n_data:/home/node/.n8n
+volumes:
+  n8n_data:
