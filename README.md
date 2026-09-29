@@ -47,8 +47,21 @@ packages/database  Prisma schema + client, shared by both apps
 packages/config     Shared TypeScript config
 ```
 
+## AI Workforce
+
+Organizations can hire AI workers (HR, procurement, finance, customer service, document
+processing, project management) that process tasks 24/7 and send important decisions to humans
+for approval. Set `ANTHROPIC_API_KEY` to enable them. Endpoints are under
+`/api/v1/workforce/catalog` and `/api/v1/companies/:companyId/workforce/...`; see section 8 of
+`ARCHITECTURE.md`.
+
+```bash
+pnpm --filter @talenthub/api test:e2e   # e2e suites (needs Postgres; stubs the AI provider)
+```
+
 ## Status
 
 Foundation module complete: monorepo tooling, full Prisma schema, NestJS bootstrap (config
 validation, health check, Swagger, security middleware), Next.js shell with dark/light theming and
-the public landing page, and CI. See the Roadmap section in `ARCHITECTURE.md` for what's next.
+the public landing page, and CI. AI Workforce backend (hire workers, task execution on Claude,
+approval policy and queue, savings metrics). See the Roadmap section in `ARCHITECTURE.md` for what's next.

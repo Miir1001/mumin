@@ -6,11 +6,18 @@ import {
   Bot,
   Briefcase,
   Building2,
+  ClipboardCheck,
+  FileStack,
   FileText,
   GraduationCap,
+  Headset,
+  KanbanSquare,
   Landmark,
   LineChart,
+  Receipt,
   Search,
+  ShieldCheck,
+  ShoppingCart,
   Sparkles,
   UserRound,
   Users,
@@ -50,6 +57,22 @@ const aiFeatures = [
   },
 ];
 
+const aiWorkers = [
+  { icon: Users, title: "HR Assistant", description: "Screens candidates, answers policy questions, drafts offers." },
+  { icon: ShoppingCart, title: "Procurement Officer", description: "Compares quotes, drafts POs, checks vendor risk." },
+  { icon: Receipt, title: "Finance Clerk", description: "Processes invoices, reviews expenses, reconciles accounts." },
+  { icon: Headset, title: "Customer Service Agent", description: "Triages tickets, drafts replies, handles refunds." },
+  { icon: FileStack, title: "Document Processor", description: "Classifies documents, extracts fields, writes summaries." },
+  { icon: KanbanSquare, title: "Project Coordinator", description: "Writes status reports, plans work, flags risks." },
+];
+
+const workforceSteps = [
+  { title: "Hire", description: "Pick AI workers from the catalog and give them your policies and tone." },
+  { title: "Assign", description: "Send tasks by API or dashboard. Workers run 24/7, in parallel." },
+  { title: "Approve", description: "Anything over your limits or below your confidence bar waits for a human." },
+  { title: "Measure", description: "Track hours saved, automation rate, and net savings per worker." },
+];
+
 function fadeUp(delay = 0) {
   return {
     initial: { opacity: 0, y: 16 },
@@ -78,6 +101,9 @@ export default function HomePage() {
             </a>
             <a href="#ai" className="transition-colors hover:text-foreground">
               AI Features
+            </a>
+            <a href="#workforce" className="transition-colors hover:text-foreground">
+              AI Workforce
             </a>
             <a href="#pricing" className="transition-colors hover:text-foreground">
               Pricing
@@ -180,6 +206,62 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        </section>
+
+        <section id="workforce" className="mx-auto max-w-6xl px-6 py-20">
+          <motion.div {...fadeUp(0)} className="mb-12 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground">
+              <Bot className="h-3.5 w-3.5 text-primary" />
+              AI Workforce
+            </div>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Hire AI workers, not more headcount</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+              Businesses and governments deploy AI workers for repetitive administrative and professional
+              work. They run around the clock inside your approval rules, and every important decision goes
+              to a person.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {aiWorkers.map((worker, i) => (
+              <motion.div
+                key={worker.title}
+                {...fadeUp(0.04 * i)}
+                className="rounded-2xl border border-border bg-card p-6 transition-shadow hover:shadow-lg"
+              >
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <worker.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold">{worker.title}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{worker.description}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {workforceSteps.map((step, i) => (
+              <motion.div key={step.title} {...fadeUp(0.05 * i)} className="rounded-2xl border border-dashed border-border p-6">
+                <span className="text-xs font-medium text-primary">Step {i + 1}</span>
+                <h3 className="mt-1 font-semibold">{step.title}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{step.description}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            {...fadeUp(0.1)}
+            className="mt-8 flex flex-col items-start gap-3 rounded-2xl border border-border bg-muted/40 p-6 sm:flex-row sm:items-center"
+          >
+            <div className="flex items-center gap-2 text-primary">
+              <ShieldCheck className="h-5 w-5" />
+              <ClipboardCheck className="h-5 w-5" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Human-in-the-loop by design.</span> Set spending limits,
+              confidence thresholds, and task types that always need sign-off. Every task keeps a full audit
+              trail.
+            </p>
+          </motion.div>
         </section>
 
         <section className="mx-auto max-w-4xl px-6 py-24 text-center">

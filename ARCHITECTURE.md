@@ -85,6 +85,12 @@ search facets, session lookups).
 - **Billing**: `Plan` → `Subscription` (owned by a `User` *or* a `Company`, provider-agnostic via
   `PaymentProvider` enum so Stripe and PayPal share one model) → `Invoice` → `Payment`, plus
   standalone `Coupon`.
+- **AI Workforce**: `AiWorker` (a hired AI worker, owned by a `Company`, keyed to a role in the
+  code-defined catalog, with a per-worker `approvalPolicy` JSON) → `AiTask` (one unit of work, with
+  structured `output`, `confidence`, `riskLevel`, `amount`, token usage) → `ApprovalRequest` (a
+  human decision the task is waiting on) and `AiTaskEvent` (append-only timeline/audit trail).
+  `AiTask.companyId` is denormalized so company-wide queues and metrics don't need a join. See
+  section 8.
 - **Trust & ops**: `Report` (polymorphic via `ReportTargetType` + `targetId` — avoids a table per
   reportable entity), `AuditLog` (append-only, indexed by entity), `SupportTicket`/
   `SupportTicketMessage`.
@@ -236,6 +242,86 @@ reserved for chrome (nav) rather than content cards, so content stays readable.
 
 ---
 
+## 8. AI Workforce (implemented)
+
+Organizations — businesses and government bodies — "hire" AI workers instead of adding headcount
+for repetitive administrative and professional work. Each worker runs tasks around the clock, and any
+outcome that trips the organization's guardrails is held for a human to approve.
+
+```
+POST /workers/:id/tasks ─► AiTask QUEUED ─► TaskQueueService (priority, bounded concurrency)
+                                                 │
+                                                 ▼
+                                   TaskRunnerService.run(taskId)
+                          atomic claim (QUEUED→RUNNING, worker ACTIVE only)
+                                                 │
+                                   AiExecutor (Claude, structured output)
+                                                 │
+                                   evaluateApproval(policy, outcome)
+                        ┌────────────────────────┴───────────────────────┐
+                   passes policy                                   trips a rule
+               AiTask COMPLETED                          AiTask AWAITING_APPROVAL
+                                                         + ApprovalRequest PENDING
+                                                                   │
+                                                  human approves ─┴─ human rejects
+                                                  → COMPLETED          → REJECTED
+```
+
+**Decision: the role catalog lives in code (`apps/api/src/workforce/catalog`), not the database.**
+A role is a prompt, a set of task types, default guardrails, and pricing/economics. Prompts and
+guardrails are logic: they need review, tests, and versioning with the code that interprets them.
+Workers store only `roleKey` plus their own overrides. Roles shipped: HR Assistant, Procurement
+Officer, Finance Clerk, Customer Service Agent, Document Processor, Project Coordinator.
+
+**Decision: one structured output contract for every worker.** Every task returns `summary`,
+`details`, `draft`, `proposedAction {type, description, amount}`, `confidence`, `riskLevel`,
+`riskFactors`, `needsHumanReview`, enforced by the Claude API's structured outputs (zod schema).
+That's what lets a single, testable policy engine govern every department, and gives reviewers a
+consistent approval queue.
+
+**Decision: approval policy is a pure function (`policy/approval-policy.ts`).** A task goes to a
+human if *any* rule trips: the task type always needs sign-off (e.g. offer letters), the
+organization opted that task type in, the amount exceeds `autoApproveMaxAmount`, confidence is
+below `minConfidence`, the assessed risk meets `approvalRiskThreshold`, or the worker itself asked
+for review. The reported risk is the highest any rule implies (amounts ≥10× the limit are
+CRITICAL), so the queue sorts riskiest-first. A worker's proposed action is never treated as done
+until the policy or a human releases it.
+
+**Decision: the database row is the source of truth for task state; the queue is in-process for
+now.** The runner claims tasks with a conditional `updateMany` (so double-dispatch is harmless),
+transient AI failures retry with backoff up to 3 attempts, and on boot `RUNNING` tasks are
+recovered to `QUEUED`. That recovery assumes one API instance; for horizontal scaling
+`TaskQueueService` is swapped for a BullMQ queue on the existing Redis without touching the runner.
+
+**AI provider**: `AnthropicExecutor` calls Claude via `@anthropic-ai/sdk` (`ANTHROPIC_MODEL`, default
+`claude-opus-5-5`) with structured outputs, prompt caching on the per-role system prompt, and
+server-side refusal fallbacks. Task input is framed as data, not instructions, to blunt prompt
+injection from customer-supplied documents. Without credentials the API still boots; tasks fail
+with a clear error. The executor sits behind the `AI_EXECUTOR` token, so tests (and future
+providers) substitute it.
+
+**API** (all under `/api/v1`):
+
+| Method & path | Purpose |
+|---|---|
+| `GET /workforce/catalog` | Hireable roles, task types, default policy, pricing |
+| `POST/GET /companies/:companyId/workforce/workers` | Hire / list workers |
+| `GET/PATCH …/workers/:workerId` | Detail / rename, instructions, policy overrides |
+| `POST …/workers/:workerId/{pause,resume,retire}` | Lifecycle (retire cancels open tasks) |
+| `POST …/workers/:workerId/tasks` | Assign a task (processed asynchronously) |
+| `GET …/tasks`, `GET …/tasks/:taskId` | Cursor-paginated list / detail with timeline |
+| `POST …/tasks/:taskId/{cancel,retry}` | Cancel queued or awaiting work / retry failed |
+| `GET …/approvals` | Human approval queue (pending, riskiest first) |
+| `POST …/approvals/:approvalId/{approve,reject}` | Record a decision |
+| `GET …/metrics?days=30` | Tasks by status, automation rate, hours saved, net savings |
+
+**Not yet done**: company-scoped routes check that the company exists but not who is calling;
+they get `RolesGuard` + `CompanyMember` checks (and `decidedBy`/`hiredBy`/`requestedBy` actor
+IDs) when the Auth module lands. A workforce dashboard in `apps/web` and connectors that execute
+approved actions in external systems (ERP, HRIS, ticketing) come after that.
+
+---
+
 ## Roadmap (module by module)
 
 0. **Foundation — done.** Monorepo, Prisma schema, NestJS bootstrap (config validation, health
@@ -252,6 +338,9 @@ reserved for chrome (nav) rather than content cards, so content stays readable.
 6. **AI features** — resume scoring/ATS optimization, job/candidate matching, interview coach,
    cover letter generation (built on top of, not before, the data that feeds them).
 7. **Billing & Admin** — Stripe/PayPal subscriptions, invoices, coupons, the super admin panel.
+8. **AI Workforce — backend done** (section 8). Remaining: auth guards once Module 1 lands, the
+   workforce dashboard (workers, task queue, approval inbox, savings), BullMQ-backed queue, and
+   connectors that execute approved actions in customer systems.
 
 Each module ships with its own tests (unit + e2e), Swagger docs, and no placeholder endpoints —
 built in this order because each one is a hard dependency of the next.

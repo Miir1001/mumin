@@ -14,4 +14,11 @@ export default () => ({
     refreshSecret: process.env.JWT_REFRESH_SECRET,
     refreshTtl: process.env.JWT_REFRESH_TTL ?? "7d",
   },
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY || undefined,
+    model: process.env.ANTHROPIC_MODEL ?? "claude-opus-5-5",
+  },
+  workforce: {
+    concurrency: parseInt(process.env.WORKFORCE_CONCURRENCY ?? "4", 10),
+  },
 });

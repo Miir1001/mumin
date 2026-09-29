@@ -12,6 +12,11 @@ export const envSchema = z.object({
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_SECRET: z.string().min(16, "JWT_REFRESH_SECRET must be at least 16 characters"),
   JWT_REFRESH_TTL: z.string().default("7d"),
+
+  // Optional so the API boots without AI; AI workers fail their tasks with a clear error until set.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default("claude-opus-5-5"),
+  WORKFORCE_CONCURRENCY: z.coerce.number().int().positive().default(4),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

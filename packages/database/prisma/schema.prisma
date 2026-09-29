@@ -91,6 +91,10 @@ model User {
 
   coursesAuthored   Course[]           @relation("CourseInstructor")
 
+  aiWorkersHired    AiWorker[]         @relation("AiWorkerHiredBy")
+  aiTasksRequested  AiTask[]           @relation("AiTaskRequestedBy")
+  approvalsDecided  ApprovalRequest[]  @relation("ApprovalDecidedBy")
+
   createdBy         String?
   creator           User?              @relation("UserCreatedBy", fields: [createdBy], references: [id])
   createdUsers      User[]             @relation("UserCreatedBy")
@@ -515,6 +519,9 @@ model Company {
   interviews   Interview[]
   candidatePools TalentPool[]
   emailTemplates EmailTemplate[]
+  aiWorkers    AiWorker[]
+  aiTasks      AiTask[]
+  approvalRequests ApprovalRequest[]
 
   @@index([type])
   @@map("companies")
@@ -1202,4 +1209,158 @@ model SupportTicketMessage {
 
   @@index([ticketId])
   @@map("support_ticket_messages")
+}
+
+// ---------------------------------------------------------------------------
+// AI Workforce
+// ---------------------------------------------------------------------------
+// Organizations "hire" AI workers from a role catalog (defined in code, see
+// apps/api/src/workforce/catalog). Each worker processes tasks 24/7; any task
+// whose outcome trips the worker's approval policy is parked as an
+// ApprovalRequest until a human approves or rejects it.
+
+enum AiDepartment {
+  HR
+  PROCUREMENT
+  FINANCE
+  CUSTOMER_SERVICE
+  DOCUMENT_PROCESSING
+  PROJECT_MANAGEMENT
+}
+
+enum AiWorkerStatus {
+  ACTIVE
+  PAUSED
+  RETIRED
+}
+
+enum AiTaskStatus {
+  QUEUED
+  RUNNING
+  AWAITING_APPROVAL
+  COMPLETED
+  REJECTED
+  FAILED
+  CANCELLED
+}
+
+enum AiTaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AiWorker {
+  id             String         @id @default(cuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Key into the role catalog (e.g. "invoice-processor"); the catalog owns prompts and task types.
+  roleKey        String
+  department     AiDepartment
+  name           String
+  status         AiWorkerStatus @default(ACTIVE)
+  /// Per-worker overrides of the role's default approval policy (see ApprovalPolicy in the API).
+  approvalPolicy Json
+  /// Free-form instructions appended to the role prompt (company tone, internal rules, ...).
+  instructions   String?        @db.Text
+
+  hiredById String?
+  hiredBy   User?     @relation("AiWorkerHiredBy", fields: [hiredById], references: [id], onDelete: SetNull)
+  hiredAt   DateTime  @default(now())
+  retiredAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  tasks AiTask[]
+
+  @@index([companyId, status])
+  @@map("ai_workers")
+}
+
+model AiTask {
+  id           String         @id @default(cuid())
+  workerId     String
+  worker       AiWorker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  /// Denormalized from the worker so company-wide queues and metrics don't need a join.
+  companyId    String
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type         String
+  title        String
+  input        Json
+  output       Json?
+  status       AiTaskStatus   @default(QUEUED)
+  priority     AiTaskPriority @default(NORMAL)
+  riskLevel    RiskLevel?
+  confidence   Float?
+  /// Monetary value the task acts on (invoice total, PO amount, refund), in the company's currency.
+  amount       Decimal?       @db.Decimal(14, 2)
+  error        String?        @db.Text
+  attempts     Int            @default(0)
+  inputTokens  Int            @default(0)
+  outputTokens Int            @default(0)
+
+  requestedById String?
+  requestedBy   User?     @relation("AiTaskRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  approvals ApprovalRequest[]
+  events    AiTaskEvent[]
+
+  @@index([companyId, status, createdAt])
+  @@index([workerId, createdAt])
+  @@map("ai_tasks")
+}
+
+model ApprovalRequest {
+  id             String         @id @default(cuid())
+  taskId         String
+  task           AiTask         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status         ApprovalStatus @default(PENDING)
+  riskLevel      RiskLevel
+  /// Human-readable reasons the policy escalated this task.
+  reasons        String[]
+  /// The action the AI worker wants to take once approved.
+  proposedAction Json
+  decidedById    String?
+  decidedBy      User?          @relation("ApprovalDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt      DateTime?
+  decisionNote   String?        @db.Text
+  createdAt      DateTime       @default(now())
+
+  @@index([companyId, status, createdAt])
+  @@index([taskId])
+  @@map("approval_requests")
+}
+
+/// Append-only timeline of everything that happened to a task (audit trail).
+model AiTaskEvent {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      AiTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  data      Json?
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+  @@map("ai_task_events")
 }
