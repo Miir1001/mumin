@@ -1,0 +1,1245 @@
+<title>Flowline</title>
+<meta name="description" content="Flowline is a visual workflow automation builder that runs in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-height app shell. Header, then node library | wiring canvas | inspector. Panels become sheets on phones. */
+:root {
+  --bg: #E6EBE8; --canvas: #F3F6F4; --dot: #C5D0CB;
+  --panel: #FFFFFF; --panel-2: #F5F8F6; --line: #D6DEDA; --line-2: #E7ECE9;
+  --fg: #16201C; --muted: #5B6A64; --faint: #8A9892;
+  --accent: #1E6B58; --accent-fg: #FFFFFF; --accent-soft: #DBEDE6;
+  --c-trigger: #C4521A; --c-action: #2F5FD0; --c-logic: #7A45C9; --c-data: #0E7A6C; --c-transform: #A86410;
+  --ok: #1B7F3E; --ok-soft: #DDF1E3; --err: #C8322B; --err-soft: #FBE3E1; --warn: #A66A00;
+  --edge: #8C9A95; --shadow: 0 1px 2px rgba(18,32,26,.06), 0 6px 18px rgba(18,32,26,.07);
+  --f-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F1412; --canvas: #131A17; --dot: #26312C;
+  --panel: #19211E; --panel-2: #141B18; --line: #2A3530; --line-2: #222C28;
+  --fg: #E3EBE7; --muted: #9AA8A2; --faint: #6D7C76;
+  --accent: #5EC6A6; --accent-fg: #0A1411; --accent-soft: #1B3630;
+  --c-trigger: #F59358; --c-action: #7FA2FF; --c-logic: #B592F5; --c-data: #3FD1BC; --c-transform: #F0B458;
+  --ok: #58D68A; --ok-soft: #173325; --err: #FF7B72; --err-soft: #3A1B1A; --warn: #F2C04D;
+  --edge: #5D6C66; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.35);
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0F1412; --canvas: #131A17; --dot: #26312C;
+  --panel: #19211E; --panel-2: #141B18; --line: #2A3530; --line-2: #222C28;
+  --fg: #E3EBE7; --muted: #9AA8A2; --faint: #6D7C76;
+  --accent: #5EC6A6; --accent-fg: #0A1411; --accent-soft: #1B3630;
+  --c-trigger: #F59358; --c-action: #7FA2FF; --c-logic: #B592F5; --c-data: #3FD1BC; --c-transform: #F0B458;
+  --ok: #58D68A; --ok-soft: #173325; --err: #FF7B72; --err-soft: #3A1B1A; --warn: #F2C04D;
+  --edge: #5D6C66; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); overflow: hidden; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+header.top { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
+.brand { display: flex; align-items: center; gap: 8px; font: 700 19px/1 var(--f-display); letter-spacing: -.01em; white-space: nowrap; }
+.brand-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; }
+.brand-mark svg { width: 16px; height: 16px; stroke-width: 2.4; }
+.wf-name { flex: 1 1 160px; min-width: 0; max-width: 340px; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 5px 8px; font-weight: 600; }
+.wf-name:hover { border-color: var(--line); }
+.wf-name:focus { border-color: var(--accent); outline: none; background: var(--panel-2); }
+.saved { color: var(--faint); font-size: 12px; white-space: nowrap; }
+.spacer { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 6px 11px; white-space: nowrap; font-weight: 500; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.primary[disabled] { opacity: .6; cursor: progress; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--panel-2); }
+.btn.danger { color: var(--err); }
+.btn.sm { padding: 3px 8px; font-size: 13px; }
+.icon-btn { border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 5px; display: inline-grid; place-items: center; color: var(--muted); }
+.icon-btn:hover { background: var(--panel-2); color: var(--fg); }
+.switch { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; user-select: none; }
+.switch input { appearance: none; width: 32px; height: 18px; border-radius: 9px; background: var(--line); position: relative; cursor: pointer; transition: background .15s; margin: 0; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--panel); transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch input:checked { background: var(--accent); }
+.switch input:checked::after { transform: translateX(14px); }
+.menu-wrap { position: relative; }
+.menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; min-width: 250px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; }
+.menu h6 { margin: 6px 8px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+.menu button { display: flex; width: 100%; align-items: center; gap: 8px; text-align: left; border: 0; background: transparent; padding: 7px 8px; border-radius: 6px; }
+.menu button:hover { background: var(--panel-2); }
+.menu button.current { color: var(--accent); font-weight: 600; }
+.menu hr { border: 0; border-top: 1px solid var(--line-2); margin: 5px 0; }
+
+main.work { display: grid; grid-template-columns: 236px minmax(0,1fr) 380px; min-height: 0; }
+aside { background: var(--panel); min-height: 0; display: flex; flex-direction: column; }
+aside.lib { border-right: 1px solid var(--line); }
+aside.insp { border-left: 1px solid var(--line); }
+.pane-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px; }
+.pane-head h2 { margin: 0; font: 600 15px/1.2 var(--f-display); letter-spacing: -.005em; flex: 1; min-width: 0; }
+.close-sheet { display: none; }
+.search { margin: 0 12px 8px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-2); width: calc(100% - 24px); }
+.lib-list { overflow: auto; padding: 0 8px 16px; flex: 1; }
+.lib-group { margin: 10px 6px 4px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+.lib-item { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; border: 1px solid transparent; background: transparent; border-radius: 8px; padding: 7px 8px; }
+.lib-item:hover { background: var(--panel-2); border-color: var(--line-2); }
+.lib-item .n-icon { width: 28px; height: 28px; }
+.lib-item b { display: block; font-weight: 600; font-size: 13.5px; }
+.lib-item span { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.pending-note { margin: 0 12px 8px; padding: 7px 10px; font-size: 12px; background: var(--accent-soft); color: var(--fg); border-radius: 7px; display: flex; gap: 6px; align-items: center; }
+
+/* canvas */
+.canvas { position: relative; overflow: hidden; background-color: var(--canvas); background-image: radial-gradient(var(--dot) 1.2px, transparent 1.3px); touch-action: none; min-width: 0; cursor: grab; }
+.canvas.panning { cursor: grabbing; }
+.world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+svg.edges { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+.edge { fill: none; stroke: var(--edge); stroke-width: 2; pointer-events: none; }
+.edge.active { stroke: var(--ok); }
+.edge.selected { stroke: var(--accent); stroke-width: 3; }
+.edge.temp { stroke: var(--accent); stroke-dasharray: 6 5; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; pointer-events: stroke; }
+.edge-label { font: 500 11px var(--f-mono); fill: var(--muted); paint-order: stroke; stroke: var(--canvas); stroke-width: 4px; text-anchor: middle; pointer-events: none; }
+.edge-del { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--err); display: grid; place-items: center; box-shadow: var(--shadow); }
+.edge-del svg { width: 14px; height: 14px; }
+
+.node { position: absolute; left: 0; top: 0; width: 208px; background: var(--panel); border: 1.5px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; user-select: none; }
+.node:hover { border-color: var(--faint); }
+.node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
+.node.success { border-color: var(--ok); }
+.node.error { border-color: var(--err); }
+.node.running { border-color: var(--accent); }
+.node.running .n-icon { animation: pulse 1s ease-in-out infinite; }
+.node.disabled { opacity: .55; }
+.node.disabled .n-name { text-decoration: line-through; }
+@keyframes pulse { 50% { transform: scale(.88); } }
+@media (prefers-reduced-motion: reduce) { .node.running .n-icon { animation: none; } }
+.n-icon { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; flex: none; color: var(--cat); background: color-mix(in srgb, var(--cat) 13%, transparent); }
+.n-text { min-width: 0; flex: 1; }
+.n-name { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-sub { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-flag { position: absolute; top: -9px; right: 10px; font: 600 10.5px/1 var(--f-mono); padding: 3px 6px; border-radius: 10px; background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); }
+.node.error .n-flag { background: var(--err-soft); color: var(--err); border-color: var(--err); }
+.node.trigger-node { border-radius: 22px 10px 10px 22px; }
+.cat-trigger { --cat: var(--c-trigger); } .cat-action { --cat: var(--c-action); } .cat-logic { --cat: var(--c-logic); } .cat-data { --cat: var(--c-data); } .cat-transform { --cat: var(--c-transform); }
+.port { position: absolute; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: var(--panel); border: 2px solid var(--edge); z-index: 2; }
+.port.in { left: -8px; }
+.port.out { right: -8px; cursor: crosshair; }
+.port.out:hover, .port.in.hot { border-color: var(--accent); background: var(--accent); }
+.port::before { content: ""; position: absolute; inset: -9px; border-radius: 50%; }
+.p-label { position: absolute; left: 17px; top: 50%; transform: translateY(-50%); font: 500 10.5px var(--f-mono); color: var(--muted); white-space: nowrap; pointer-events: none; }
+.port.in .p-label { left: auto; right: 17px; }
+
+.canvas-ctrl { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; box-shadow: var(--shadow); }
+.canvas-hint { position: absolute; right: 12px; bottom: 14px; font-size: 12px; color: var(--faint); pointer-events: none; }
+.viewing { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 5px 6px 5px 14px; font-size: 13px; display: flex; gap: 8px; align-items: center; box-shadow: var(--shadow); white-space: nowrap; }
+.empty-canvas { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.empty-canvas div { pointer-events: auto; text-align: center; max-width: 300px; color: var(--muted); }
+.empty-canvas b { display: block; color: var(--fg); font: 600 17px var(--f-display); margin-bottom: 4px; }
+
+/* inspector */
+.insp-body { overflow: auto; flex: 1; padding: 0 14px 20px; min-width: 0; }
+.name-input { font: 600 15px var(--f-display); border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 3px 6px; margin-left: -6px; width: 100%; min-width: 0; }
+.name-input:hover { border-color: var(--line); }
+.name-input:focus { border-color: var(--accent); outline: none; }
+.type-line { font-size: 12px; color: var(--muted); margin: 0 14px 8px; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); padding: 0 10px; }
+.tab { border: 0; background: transparent; padding: 8px 10px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; }
+.tab.on { color: var(--fg); border-bottom-color: var(--accent); }
+.tab .cnt { font: 500 11px var(--f-mono); color: var(--faint); margin-left: 3px; }
+.field { display: grid; gap: 5px; margin-top: 14px; }
+.field > label { font-size: 12.5px; font-weight: 600; }
+.field .help { font-size: 12px; color: var(--muted); }
+.inp { width: 100%; min-width: 0; border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 7px 9px; }
+.inp:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+.inp.expr { font-family: var(--f-mono); font-size: 12.5px; }
+textarea.inp { font: 12.5px/1.5 var(--f-mono); resize: vertical; min-height: 120px; tab-size: 2; }
+.rows { display: grid; gap: 6px; }
+.row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center; }
+.row.cond { grid-template-columns: 1fr 118px 1fr auto; }
+.add-row { justify-self: start; }
+.desc { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+.callout { margin-top: 12px; padding: 9px 11px; border-radius: 8px; font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--muted); }
+.callout code, .desc code, .help code { font: 12px var(--f-mono); color: var(--fg); }
+.err-box { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--err-soft); color: var(--err); font-size: 13px; border: 1px solid color-mix(in srgb, var(--err) 35%, transparent); word-break: break-word; }
+.data-bar { display: flex; gap: 8px; align-items: center; margin: 12px 0 8px; flex-wrap: wrap; }
+.data-bar .meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 3px 9px; font-size: 12.5px; color: var(--muted); }
+.seg button.on { background: var(--accent-soft); color: var(--fg); font-weight: 600; }
+.tbl-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; max-height: 60vh; }
+table.data { border-collapse: collapse; font: 12px/1.4 var(--f-mono); min-width: 100%; }
+table.data th, table.data td { padding: 6px 9px; border-bottom: 1px solid var(--line-2); text-align: left; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+table.data th { position: sticky; top: 0; background: var(--panel-2); font-weight: 600; color: var(--fg); }
+table.data th.pick { cursor: copy; }
+table.data th.pick:hover { color: var(--accent); }
+table.data td.idx, table.data th.idx { color: var(--faint); width: 1%; }
+pre.json { margin: 0; padding: 10px 12px; font: 12px/1.5 var(--f-mono); overflow: auto; max-height: 60vh; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.j-k { color: var(--c-action); } .j-s { color: var(--c-data); } .j-n { color: var(--c-transform); } .j-b { color: var(--c-logic); }
+.nodata { margin-top: 18px; color: var(--muted); font-size: 13px; }
+.exec-list { display: grid; gap: 4px; margin-top: 8px; }
+.exec { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--line-2); background: var(--panel); border-radius: 8px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
+.exec:hover { border-color: var(--line); background: var(--panel-2); }
+.exec.on { border-color: var(--accent); }
+.exec small { color: var(--muted); font-size: 12px; display: block; }
+.pill { font: 600 10.5px/1 var(--f-mono); padding: 4px 7px; border-radius: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.err { background: var(--err-soft); color: var(--err); }
+.sec-title { margin: 20px 0 4px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+.kv-list { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; margin-top: 8px; }
+.kv-list dt { color: var(--muted); }
+.kv-list dd { margin: 0; font-variant-numeric: tabular-nums; }
+.cheat { font: 12px/1.7 var(--f-mono); color: var(--muted); }
+.cheat b { color: var(--fg); font-weight: 500; }
+
+/* modal + toast */
+.scrim { position: fixed; inset: 0; background: rgba(8,14,12,.45); display: grid; place-items: center; z-index: 100; padding: 16px; }
+.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); width: min(620px, 100%); max-height: 90%; display: flex; flex-direction: column; }
+.modal h3 { margin: 0; padding: 16px 18px 6px; font: 600 17px var(--f-display); }
+.modal .m-body { padding: 4px 18px 8px; overflow: auto; }
+.modal .m-body p { margin: 6px 0 10px; color: var(--muted); }
+.modal .m-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 18px 16px; flex-wrap: wrap; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 8px; font-size: 13px; z-index: 200; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
+
+.mobile-only { display: none; }
+@media (max-width: 1080px) { main.work { grid-template-columns: 220px minmax(0,1fr) 330px; } }
+@media (max-width: 820px) {
+  main.work { grid-template-columns: minmax(0,1fr); position: relative; }
+  aside.lib, aside.insp { position: absolute; z-index: 30; box-shadow: var(--shadow); }
+  aside.lib { left: 0; top: 0; bottom: 0; width: min(300px, 86%); transform: translateX(-105%); transition: transform .2s; }
+  aside.insp { left: 0; right: 0; bottom: 0; height: 62%; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; transform: translateY(105%); transition: transform .2s; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  aside.lib.open, aside.insp.open { transform: none; }
+  .close-sheet, .mobile-only { display: inline-grid; }
+  .hide-sm { display: none; }
+  .canvas-hint { display: none; }
+  header.top { gap: 8px; }
+}
+@media (max-width: 480px) { .brand span { display: none; } .saved { display: none; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><div class="brand-mark"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h6l4 10h6"/><circle cx="4" cy="7" r="1.2"/><circle cx="20" cy="17" r="1.2"/></svg></div><span>Flowline</span></div>
+    <div class="menu-wrap">
+      <button class="icon-btn" id="wfMenuBtn" aria-label="Workflows" title="Workflows"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <div class="menu" id="wfMenu" hidden></div>
+    </div>
+    <input class="wf-name" id="wfName" aria-label="Workflow name">
+    <span class="saved" id="saved">Saved</span>
+    <div class="spacer"></div>
+    <label class="switch hide-sm" title="Runs Schedule Trigger nodes on their interval while this tab stays open"><input type="checkbox" id="activeToggle">Active</label>
+    <button class="btn ghost hide-sm" id="ioBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Import / Export</button>
+    <button class="btn ghost mobile-only" id="runsBtn">Runs</button>
+    <button class="btn primary" id="execBtn" title="Execute workflow (Ctrl+Enter)"><svg class="i" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg><span>Execute</span></button>
+  </header>
+
+  <main class="work">
+    <aside class="lib" id="lib">
+      <div class="pane-head"><h2>Add a node</h2><button class="icon-btn close-sheet" data-close="lib" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div id="pendingNote"></div>
+      <input class="search" id="libSearch" placeholder="Search nodes" aria-label="Search nodes">
+      <div class="lib-list" id="libList"></div>
+    </aside>
+
+    <section class="canvas" id="canvas" aria-label="Workflow canvas">
+      <div class="world" id="world">
+        <svg class="edges" id="edges"></svg>
+        <div id="nodesLayer"></div>
+        <div id="edgeUi"></div>
+      </div>
+      <div id="viewing"></div>
+      <div id="emptyCanvas"></div>
+      <div class="canvas-ctrl">
+        <button class="icon-btn mobile-only" id="addBtn" aria-label="Add node" title="Add node"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="icon-btn" id="zoomIn" aria-label="Zoom in" title="Zoom in"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M11 8v6M8 11h6M20 20l-4.5-4.5"/></svg></button>
+        <button class="icon-btn" id="zoomOut" aria-label="Zoom out" title="Zoom out"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M8 11h6M20 20l-4.5-4.5"/></svg></button>
+        <button class="icon-btn" id="fitBtn" aria-label="Fit to view" title="Fit to view"><svg class="i" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div class="canvas-hint">Drag from a node's right edge to connect · Ctrl+scroll to zoom · Delete removes selection</div>
+    </section>
+
+    <aside class="insp" id="insp"></aside>
+  </main>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+"use strict";
+/* ---------- utilities ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 10);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const clone = v => { try { return structuredClone(v); } catch { return JSON.parse(JSON.stringify(v)); } };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+let CAN_EVAL = false;
+try { CAN_EVAL = new Function("return 1")() === 1; } catch { CAN_EVAL = false; }
+
+function getPath(obj, path) {
+  if (path == null || path === "") return obj;
+  const parts = String(path).match(/[^.[\]]+/g) || [];
+  let cur = obj;
+  for (const p of parts) { if (cur == null) return undefined; cur = cur[p]; }
+  return cur;
+}
+function setPath(obj, path, val) {
+  const parts = String(path).match(/[^.[\]]+/g) || [];
+  if (!parts.length) return;
+  let cur = obj;
+  parts.forEach((p, i) => {
+    if (i === parts.length - 1) cur[p] = val;
+    else { if (cur[p] == null || typeof cur[p] !== "object") cur[p] = {}; cur = cur[p]; }
+  });
+}
+function autoType(v) {
+  if (typeof v !== "string") return v;
+  const t = v.trim();
+  if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+  if (t === "true") return true;
+  if (t === "false") return false;
+  if (t === "null") return null;
+  return v;
+}
+const toItem = x => {
+  if (x && typeof x === "object" && !Array.isArray(x) && "json" in x && x.json && typeof x.json === "object") return { json: x.json };
+  if (x && typeof x === "object" && !Array.isArray(x)) return { json: x };
+  return { json: { value: x } };
+};
+
+/* ---------- expressions ---------- */
+const exprCache = new Map();
+function evalExpr(expr, s) {
+  const code = expr.trim();
+  if (CAN_EVAL) {
+    let f = exprCache.get(code);
+    if (!f) {
+      try { f = new Function("$json", "$index", "$items", "$now", "$today", "$node", `"use strict"; return (${code});`); }
+      catch (e) { throw new Error(`Expression {{ ${code} }} has a syntax error: ${e.message}`); }
+      exprCache.set(code, f);
+    }
+    try { return f(s.$json, s.$index, s.$items, s.$now, s.$today, s.$node); }
+    catch (e) { throw new Error(`Expression {{ ${code} }} failed: ${e.message}`); }
+  }
+  // Fallback evaluator for viewers that block script evaluation: plain paths only.
+  if (code === "$now") return s.$now;
+  if (code === "$today") return s.$today;
+  if (code === "$index") return s.$index;
+  const m = code.match(/^\$json((?:\s*\.\s*[\w$]+|\s*\[\s*(?:"[^"]*"|'[^']*'|\d+)\s*\])*)$/);
+  if (m) {
+    const toks = [...m[1].matchAll(/\.\s*([\w$]+)|\[\s*(?:"([^"]*)"|'([^']*)'|(\d+))\s*\]/g)].map(t => t[1] ?? t[2] ?? t[3] ?? t[4]);
+    let cur = s.$json; for (const t of toks) { if (cur == null) return undefined; cur = cur[t]; } return cur;
+  }
+  throw new Error(`This viewer only supports simple expressions like {{ $json.field }}. Open Flowline from its HTML file to use {{ ${code} }}.`);
+}
+function resolve(value, s) {
+  if (typeof value !== "string" || !value.includes("{{")) return value;
+  const whole = value.match(/^\s*\{\{((?:(?!\}\}|\{\{)[\s\S])+)\}\}\s*$/);
+  if (whole) return evalExpr(whole[1], s);
+  return value.replace(/\{\{([\s\S]+?)\}\}/g, (_, e) => {
+    const v = evalExpr(e, s);
+    return v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  });
+}
+
+/* ---------- conditions ---------- */
+const OPS = ["equals", "not equals", "greater than", "less than", "contains", "not contains", "starts with", "ends with", "is empty", "is not empty", "matches regex"];
+const UNARY = new Set(["is empty", "is not empty"]);
+function testCond(l, op, r) {
+  const num = v => typeof v === "number" ? v : (typeof v === "string" && v.trim() !== "" && !isNaN(+v) ? +v : NaN);
+  const str = v => v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  const ln = num(l), rn = num(r), both = !isNaN(ln) && !isNaN(rn);
+  switch (op) {
+    case "equals": return both ? ln === rn : str(l) === str(r);
+    case "not equals": return !(both ? ln === rn : str(l) === str(r));
+    case "greater than": return both ? ln > rn : str(l) > str(r);
+    case "less than": return both ? ln < rn : str(l) < str(r);
+    case "contains": return str(l).toLowerCase().includes(str(r).toLowerCase());
+    case "not contains": return !str(l).toLowerCase().includes(str(r).toLowerCase());
+    case "starts with": return str(l).toLowerCase().startsWith(str(r).toLowerCase());
+    case "ends with": return str(l).toLowerCase().endsWith(str(r).toLowerCase());
+    case "is empty": return l == null || str(l) === "" || (Array.isArray(l) && !l.length);
+    case "is not empty": return !(l == null || str(l) === "" || (Array.isArray(l) && !l.length));
+    case "matches regex": try { return new RegExp(str(r)).test(str(l)); } catch { throw new Error(`"${r}" is not a valid regular expression.`); }
+  }
+  return false;
+}
+function passes(c, item, i) {
+  const rows = c.raw("conditions") || [];
+  if (!rows.length) return true;
+  const res = rows.map(row => testCond(c.resolve(row.left, item, i), row.op, UNARY.has(row.op) ? null : c.resolve(row.right, item, i)));
+  return c.raw("combine") === "any" ? res.some(Boolean) : res.every(Boolean);
+}
+
+/* ---------- node types ---------- */
+const ICONS = {
+  play: '<path d="M8 5v14l11-7z"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 3.3 3 13.7 0 17M12 3.5c-3 3.3-3 13.7 0 17"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  branch: '<circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7.5v9M18 10c0 4-6 3-10.5 7"/>',
+  funnel: '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>',
+  route: '<path d="M4 12h5M9 12l9-6.5M9 12h9M9 12l9 6.5"/>',
+  code: '<path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/>',
+  merge: '<path d="M6 4v3c0 5 6 4 6 9v4M18 4v3c0 5-6 4-6 9"/>',
+  sort: '<path d="M7 4v16M4 17l3 3 3-3M13 6h8M13 11h6M13 16h4"/>',
+  limit: '<path d="M4 12h11M11 8l4 4-4 4M19 5v14"/>',
+  hourglass: '<path d="M6 3h12M6 21h12M7.5 3v3.5L12 12l4.5-5.5V3M7.5 21v-3.5L12 12l4.5 5.5V21"/>',
+  calendar: '<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M9 3.5v4M15 3.5v4"/>',
+  sigma: '<path d="M17 5H7l6 7-6 7h10"/>',
+  stack: '<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5"/>',
+  split: '<path d="M4 12h5M9 12l5-6h6M9 12l5 6h6M9 12h11"/>',
+  dedupe: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 4.5H6.5a2 2 0 0 0-2 2V16"/>',
+  table: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 14.5h16M10 10v9"/>',
+  dot: '<path d="M4 12h5M15 12h5"/><circle cx="12" cy="12" r="3"/>'
+};
+const icon = (name, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24">${ICONS[name] || ICONS.dot}</svg>`;
+
+const COND_DEFAULT = [{ left: "{{ $json.status }}", op: "equals", right: "active" }];
+const TYPES = {
+  manualTrigger: { label: "Manual Trigger", cat: "trigger", icon: "play", inputs: 0, outputs: ["main"],
+    desc: "Starts the workflow when you click Execute.", params: [],
+    run: () => [[{ json: { triggeredAt: new Date().toISOString(), mode: "manual" } }]] },
+  schedule: { label: "Schedule Trigger", cat: "trigger", icon: "clock", inputs: 0, outputs: ["main"],
+    desc: "Runs on an interval while the workflow is Active and this tab stays open.",
+    params: [
+      { key: "every", label: "Run every", type: "number", default: 5 },
+      { key: "unit", label: "Unit", type: "select", options: ["seconds", "minutes", "hours"], default: "minutes" }],
+    sub: n => `Every ${n.params.every} ${n.params.unit}`,
+    run: () => [[{ json: { triggeredAt: new Date().toISOString(), mode: "schedule" } }]] },
+
+  staticData: { label: "Static Data", cat: "data", icon: "table", inputs: 1, outputs: ["main"],
+    desc: "Outputs items from JSON you paste in. An array becomes one item per element.",
+    params: [{ key: "json", label: "JSON", type: "code", default: '[\n  { "name": "Example", "value": 1 }\n]', noExpr: true }],
+    sub: n => { try { const v = JSON.parse(n.params.json); return Array.isArray(v) ? `${v.length} items` : "1 item"; } catch { return "Invalid JSON"; } },
+    run(c) {
+      let v; try { v = JSON.parse(c.raw("json")); } catch (e) { throw new Error(`The JSON is not valid: ${e.message}`); }
+      return [(Array.isArray(v) ? v : [v]).map(toItem)];
+    } },
+  httpRequest: { label: "HTTP Request", cat: "action", icon: "globe", inputs: 1, outputs: ["main"],
+    desc: "Calls a URL and outputs the response. A JSON array response becomes one item per element.",
+    params: [
+      { key: "method", label: "Method", type: "select", options: ["GET", "POST", "PUT", "PATCH", "DELETE"], default: "GET" },
+      { key: "url", label: "URL", type: "string", default: "https://jsonplaceholder.typicode.com/posts", placeholder: "https://api.example.com/items" },
+      { key: "headers", label: "Headers", type: "kv", default: [], nameLabel: "Header", valueLabel: "Value" },
+      { key: "body", label: "Body (JSON)", type: "code", default: "", help: "Sent for POST, PUT and PATCH. Expressions work here too." },
+      { key: "response", label: "Response format", type: "select", options: ["json", "text"], default: "json" },
+      { key: "once", label: "Send one request only", type: "boolean", default: true, help: "Off sends one request per incoming item." }],
+    sub: n => `${n.params.method} ${String(n.params.url).replace(/^https?:\/\//, "")}`,
+    async run(c) {
+      let items = c.items(); if (!items.length) items = [{ json: {} }];
+      const src = c.raw("once") ? items.slice(0, 1) : items;
+      const out = [];
+      for (let i = 0; i < src.length; i++) {
+        const it = src[i];
+        const url = String(c.p("url", it, i) || "").trim();
+        if (!url) throw new Error("Add a URL to request.");
+        const method = c.raw("method");
+        const headers = {};
+        for (const h of c.raw("headers") || []) if (h.name) headers[h.name] = String(c.resolve(h.value, it, i) ?? "");
+        let body;
+        if (!["GET", "DELETE"].includes(method) && String(c.raw("body") || "").trim()) {
+          const b = c.p("body", it, i); body = typeof b === "string" ? b : JSON.stringify(b);
+          if (!Object.keys(headers).some(k => k.toLowerCase() === "content-type")) headers["Content-Type"] = "application/json";
+        }
+        let res;
+        try { res = await fetch(url, { method, headers, body }); }
+        catch (e) { throw new Error(`Couldn't reach ${url} (${e.message}). Browsers block calls to APIs that don't allow cross-origin requests, and the hosted Flowline page blocks all outside requests. Open Flowline from its HTML file and use an API that allows CORS.`); }
+        const text = await res.text();
+        if (!res.ok) throw new Error(`${method} ${url} returned ${res.status} ${res.statusText}. ${text.slice(0, 200)}`);
+        let data = text;
+        if (c.raw("response") === "json") { try { data = JSON.parse(text); } catch { throw new Error("The response isn't valid JSON. Set Response format to text."); } }
+        else data = { body: text, status: res.status };
+        (Array.isArray(data) ? data : [data]).forEach(d => out.push(toItem(d)));
+      }
+      return [out];
+    } },
+  set: { label: "Edit Fields", cat: "transform", icon: "pen", inputs: 1, outputs: ["main"],
+    desc: "Adds or overwrites fields on every item. Names can use dots, like address.city.",
+    params: [
+      { key: "fields", label: "Fields to set", type: "kv", default: [{ name: "status", value: "processed" }], nameLabel: "Name", valueLabel: "Value" },
+      { key: "keepOnly", label: "Keep only these fields", type: "boolean", default: false }],
+    sub: n => (n.params.fields || []).map(f => f.name).filter(Boolean).join(", ") || "No fields",
+    run(c) {
+      return [c.items().map((it, i) => {
+        const json = c.raw("keepOnly") ? {} : clone(it.json);
+        for (const f of c.raw("fields") || []) if (f.name) setPath(json, f.name, autoType(c.resolve(f.value, it, i)));
+        return { json };
+      })];
+    } },
+  if: { label: "If", cat: "logic", icon: "branch", inputs: 1, outputs: ["true", "false"],
+    desc: "Sends each item to the true or false branch.",
+    params: [{ key: "conditions", label: "Conditions", type: "conditions", default: COND_DEFAULT }, { key: "combine", label: "Pass when", type: "select", options: ["all", "any"], labels: ["All conditions match", "Any condition matches"], default: "all" }],
+    sub: n => condSummary(n),
+    run(c) { const t = [], f = []; c.items().forEach((it, i) => (passes(c, it, i) ? t : f).push(it)); return [t, f]; } },
+  filter: { label: "Filter", cat: "logic", icon: "funnel", inputs: 1, outputs: ["kept"],
+    desc: "Keeps only the items that match. The rest are dropped.",
+    params: [{ key: "conditions", label: "Keep items where", type: "conditions", default: COND_DEFAULT }, { key: "combine", label: "Keep when", type: "select", options: ["all", "any"], labels: ["All conditions match", "Any condition matches"], default: "all" }],
+    sub: n => condSummary(n),
+    run(c) { return [c.items().filter((it, i) => passes(c, it, i))]; } },
+  switch: { label: "Switch", cat: "logic", icon: "route", inputs: 1, outputs: ["case 1", "case 2", "case 3", "other"],
+    desc: "Routes each item by comparing one value against up to three cases.",
+    params: [
+      { key: "value", label: "Value to compare", type: "string", default: "{{ $json.country }}" },
+      { key: "c1", label: "Case 1 equals", type: "string", default: "" },
+      { key: "c2", label: "Case 2 equals", type: "string", default: "" },
+      { key: "c3", label: "Case 3 equals", type: "string", default: "" }],
+    sub: n => [n.params.c1, n.params.c2, n.params.c3].filter(Boolean).join(" · ") || "No cases",
+    run(c) {
+      const outs = [[], [], [], []];
+      c.items().forEach((it, i) => {
+        const v = String(c.p("value", it, i) ?? "");
+        const k = ["c1", "c2", "c3"].findIndex(key => { const cv = c.raw(key); return cv !== "" && String(c.resolve(cv, it, i)) === v; });
+        outs[k < 0 ? 3 : k].push(it);
+      });
+      return outs;
+    } },
+  merge: { label: "Merge", cat: "logic", icon: "merge", inputs: 2, inputLabels: ["A", "B"], outputs: ["main"],
+    desc: "Waits for both inputs, then combines them.",
+    params: [
+      { key: "mode", label: "Mode", type: "select", options: ["append", "position", "field"], labels: ["Append B after A", "Combine by position", "Match by field"], default: "append" },
+      { key: "f1", label: "Field in A", type: "string", default: "id", showIf: p => p.mode === "field", noExpr: true },
+      { key: "f2", label: "Field in B", type: "string", default: "id", showIf: p => p.mode === "field", noExpr: true }],
+    sub: n => ({ append: "Append", position: "By position", field: `Match ${n.params.f1} = ${n.params.f2}` })[n.params.mode],
+    run(c) {
+      const a = c.input(0), b = c.input(1), mode = c.raw("mode");
+      if (mode === "position") return [Array.from({ length: Math.max(a.length, b.length) }, (_, i) => ({ json: { ...(a[i]?.json || {}), ...(b[i]?.json || {}) } }))];
+      if (mode === "field") {
+        const f1 = c.raw("f1"), f2 = c.raw("f2"), out = [];
+        for (const x of a) for (const y of b) if (String(getPath(x.json, f1)) === String(getPath(y.json, f2))) out.push({ json: { ...x.json, ...y.json } });
+        return [out];
+      }
+      return [[...a, ...b]];
+    } },
+  code: { label: "Code", cat: "action", icon: "code", inputs: 1, outputs: ["main"],
+    desc: "Runs your JavaScript over all incoming items. Return an array of objects.",
+    params: [{ key: "code", label: "JavaScript", type: "code", noExpr: true, rows: 12,
+      default: "// items: [{ json: {...} }, ...] from the previous node\nreturn items.map(item => ({\n  json: { ...item.json, checkedAt: new Date().toISOString() }\n}));" }],
+    sub: () => "JavaScript",
+    async run(c) {
+      if (!CAN_EVAL) throw new Error("This viewer blocks running custom JavaScript. Open Flowline from its HTML file to use the Code node.");
+      const items = clone(c.items());
+      let fn;
+      try { fn = new Function("items", "$input", "$now", "$today", "$node", `"use strict"; return (async () => {\n${c.raw("code")}\n})();`); }
+      catch (e) { throw new Error(`Syntax error in your code: ${e.message}`); }
+      let out = await fn(items, { all: () => items, first: () => items[0] }, new Date().toISOString(), new Date().toISOString().slice(0, 10), c.nodeRef);
+      if (out == null) out = [];
+      if (!Array.isArray(out)) out = [out];
+      return [out.map(toItem)];
+    } },
+  sort: { label: "Sort", cat: "transform", icon: "sort", inputs: 1, outputs: ["main"],
+    desc: "Orders items by a field.",
+    params: [{ key: "field", label: "Field", type: "string", default: "name", noExpr: true, placeholder: "total" }, { key: "order", label: "Order", type: "select", options: ["asc", "desc"], labels: ["Ascending", "Descending"], default: "asc" }],
+    sub: n => `${n.params.field} ${n.params.order === "desc" ? "↓" : "↑"}`,
+    run(c) {
+      const f = c.raw("field"), dir = c.raw("order") === "desc" ? -1 : 1;
+      return [[...c.items()].sort((x, y) => {
+        const a = getPath(x.json, f), b = getPath(y.json, f);
+        if (a == null) return 1; if (b == null) return -1;
+        return (typeof a === "number" && typeof b === "number" ? a - b : String(a).localeCompare(String(b), undefined, { numeric: true })) * dir;
+      })];
+    } },
+  limit: { label: "Limit", cat: "transform", icon: "limit", inputs: 1, outputs: ["main"],
+    desc: "Keeps only the first or last N items.",
+    params: [{ key: "max", label: "Max items", type: "number", default: 10 }, { key: "keep", label: "Keep", type: "select", options: ["first", "last"], labels: ["First items", "Last items"], default: "first" }],
+    sub: n => `${n.params.keep === "last" ? "Last" : "First"} ${n.params.max}`,
+    run(c) { const n = Math.max(0, +c.raw("max") || 0), it = c.items(); return [c.raw("keep") === "last" ? (n ? it.slice(-n) : []) : it.slice(0, n)]; } },
+  dedupe: { label: "Remove Duplicates", cat: "transform", icon: "dedupe", inputs: 1, outputs: ["main"],
+    desc: "Drops items whose field value was already seen. Leave the field empty to compare whole items.",
+    params: [{ key: "field", label: "Compare field", type: "string", default: "", noExpr: true, placeholder: "email" }],
+    sub: n => n.params.field ? `By ${n.params.field}` : "Whole item",
+    run(c) { const seen = new Set(), f = c.raw("field"); return [c.items().filter(it => { const k = JSON.stringify(f ? getPath(it.json, f) : it.json); if (seen.has(k)) return false; seen.add(k); return true; })]; } },
+  splitOut: { label: "Split Out", cat: "transform", icon: "split", inputs: 1, outputs: ["main"],
+    desc: "Turns a list inside each item into separate items.",
+    params: [{ key: "field", label: "List field", type: "string", default: "items", noExpr: true }, { key: "keepParent", label: "Include other fields", type: "boolean", default: false }],
+    sub: n => n.params.field,
+    run(c) {
+      const f = c.raw("field"), out = [];
+      c.items().forEach(it => {
+        const arr = getPath(it.json, f);
+        if (!Array.isArray(arr)) throw new Error(`Field "${f}" isn't a list on at least one item.`);
+        const base = c.raw("keepParent") ? (() => { const b = clone(it.json); delete b[f]; return b; })() : {};
+        arr.forEach(v => out.push({ json: v && typeof v === "object" && !Array.isArray(v) ? { ...base, ...v } : { ...base, [f.split(".").pop()]: v } }));
+      });
+      return [out];
+    } },
+  aggregate: { label: "Aggregate", cat: "transform", icon: "stack", inputs: 1, outputs: ["main"],
+    desc: "Collects all items, or one field from each, into a single item.",
+    params: [{ key: "field", label: "Field to collect", type: "string", default: "", noExpr: true, placeholder: "Empty collects whole items" }, { key: "out", label: "Output field", type: "string", default: "data", noExpr: true }],
+    sub: n => n.params.field ? `${n.params.field} → ${n.params.out}` : `All items → ${n.params.out}`,
+    run(c) { const f = c.raw("field"); return [[{ json: { [c.raw("out") || "data"]: c.items().map(it => f ? getPath(it.json, f) : it.json) } }]]; } },
+  summarize: { label: "Summarize", cat: "transform", icon: "sigma", inputs: 1, outputs: ["main"],
+    desc: "Counts, sums or averages items, optionally grouped by a field.",
+    params: [
+      { key: "groupBy", label: "Group by", type: "string", default: "", noExpr: true, placeholder: "Leave empty for one total" },
+      { key: "op", label: "Calculation", type: "select", options: ["count", "sum", "avg", "min", "max"], labels: ["Count", "Sum", "Average", "Minimum", "Maximum"], default: "count" },
+      { key: "field", label: "Of field", type: "string", default: "", noExpr: true, showIf: p => p.op !== "count", placeholder: "total" }],
+    sub: n => `${n.params.op}${n.params.op !== "count" ? " " + n.params.field : ""}${n.params.groupBy ? " by " + n.params.groupBy : ""}`,
+    run(c) {
+      const g = c.raw("groupBy"), op = c.raw("op"), f = c.raw("field"), groups = new Map();
+      c.items().forEach(it => { const k = g ? getPath(it.json, g) : "__all"; const key = JSON.stringify(k ?? null); if (!groups.has(key)) groups.set(key, { k, vals: [] }); groups.get(key).vals.push(op === "count" ? 1 : Number(getPath(it.json, f))); });
+      const calc = v => { const n = v.filter(x => !isNaN(x)); if (op === "count") return v.length; if (!n.length) return null;
+        if (op === "sum") return +n.reduce((a, b) => a + b, 0).toFixed(6); if (op === "avg") return +(n.reduce((a, b) => a + b, 0) / n.length).toFixed(6); return op === "min" ? Math.min(...n) : Math.max(...n); };
+      const name = op === "count" ? "count" : `${op}_${f.replace(/\W+/g, "_")}`;
+      return [[...groups.values()].map(({ k, vals }) => ({ json: g ? { [g]: k, [name]: calc(vals) } : { [name]: calc(vals) } }))];
+    } },
+  dateTime: { label: "Date & Time", cat: "transform", icon: "calendar", inputs: 1, outputs: ["main"],
+    desc: "Formats a date or shifts it forward or back.",
+    params: [
+      { key: "value", label: "Date", type: "string", default: "{{ $now }}" },
+      { key: "op", label: "Action", type: "select", options: ["format", "add"], labels: ["Format", "Add or subtract time"], default: "format" },
+      { key: "format", label: "Format", type: "select", options: ["iso", "date", "time", "datetime", "weekday", "unix"], labels: ["ISO 8601", "Date (YYYY-MM-DD)", "Time (HH:MM)", "Readable date and time", "Weekday", "Unix seconds"], default: "date", showIf: p => p.op === "format" },
+      { key: "amount", label: "Amount", type: "number", default: 7, showIf: p => p.op === "add", help: "Use a negative number to go back in time." },
+      { key: "unit", label: "Unit", type: "select", options: ["minutes", "hours", "days", "weeks"], default: "days", showIf: p => p.op === "add" },
+      { key: "out", label: "Output field", type: "string", default: "formattedDate", noExpr: true }],
+    sub: n => n.params.op === "add" ? `${n.params.amount >= 0 ? "+" : ""}${n.params.amount} ${n.params.unit}` : `Format as ${n.params.format}`,
+    run(c) {
+      let items = c.items(); if (!items.length) items = [{ json: {} }];
+      return [items.map((it, i) => {
+        const raw = c.p("value", it, i);
+        const d = new Date(typeof raw === "number" && raw < 1e11 ? raw * 1000 : raw);
+        if (isNaN(d)) throw new Error(`"${raw}" isn't a date Flowline can read.`);
+        let v;
+        if (c.raw("op") === "add") { const ms = { minutes: 6e4, hours: 36e5, days: 864e5, weeks: 6048e5 }[c.raw("unit")]; v = new Date(d.getTime() + (+c.raw("amount") || 0) * ms).toISOString(); }
+        else v = ({ iso: () => d.toISOString(), date: () => d.toISOString().slice(0, 10), time: () => d.toTimeString().slice(0, 5),
+          datetime: () => d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), weekday: () => d.toLocaleDateString(undefined, { weekday: "long" }), unix: () => Math.floor(d.getTime() / 1000) })[c.raw("format")]();
+        const json = clone(it.json); setPath(json, c.raw("out") || "formattedDate", v); return { json };
+      })];
+    } },
+  wait: { label: "Wait", cat: "logic", icon: "hourglass", inputs: 1, outputs: ["main"],
+    desc: "Pauses before passing items on. Up to 60 seconds.",
+    params: [{ key: "seconds", label: "Seconds", type: "number", default: 2 }],
+    sub: n => `${n.params.seconds}s`,
+    async run(c) { await sleep(Math.min(60, Math.max(0, +c.raw("seconds") || 0)) * 1000); return [c.items()]; } },
+  noOp: { label: "No Operation", cat: "logic", icon: "dot", inputs: 1, outputs: ["main"],
+    desc: "Passes items through unchanged. Handy as a labelled checkpoint.", params: [],
+    run(c) { return [c.items()]; } }
+};
+const CATS = [["trigger", "Triggers"], ["data", "Data"], ["action", "Actions"], ["logic", "Flow"], ["transform", "Transform"]];
+function condSummary(n) {
+  const r = (n.params.conditions || [])[0]; if (!r) return "No conditions";
+  const l = String(r.left).replace(/\{\{\s*\$json\.?|\s*\}\}/g, "");
+  const more = n.params.conditions.length > 1 ? ` +${n.params.conditions.length - 1}` : "";
+  return `${l} ${r.op}${UNARY.has(r.op) ? "" : " " + r.right}${more}`;
+}
+const defaults = type => Object.fromEntries(TYPES[type].params.map(p => [p.key, clone(p.default)]));
+const nodeH = T => Math.max(64, Math.max(T.inputs, T.outputs.length) * 22 + 12);
+const NW = 208;
+const portY = (count, i, h) => h * (i + 1) / (count + 1);
+
+/* ---------- templates ---------- */
+const ORDERS = [
+  { id: 1041, customer: "Amara Okafor", email: "amara@example.com", total: 312.5, country: "NG", items: ["Standing desk", "Cable tray"] },
+  { id: 1042, customer: "Lukas Brandt", email: "lukas@example.com", total: 48, country: "DE", items: ["Notebook set"] },
+  { id: 1043, customer: "Sofia Marín", email: "sofia@example.com", total: 189.9, country: "ES", items: ["Monitor arm", "Desk lamp"] },
+  { id: 1044, customer: "Kenji Watanabe", email: "kenji@example.com", total: 74.25, country: "JP", items: ["Keyboard"] },
+  { id: 1045, customer: "Priya Raman", email: "priya@example.com", total: 529, country: "IN", items: ["Office chair", "Footrest", "Mat"] },
+  { id: 1046, customer: "Lukas Brandt", email: "lukas@example.com", total: 22.4, country: "DE", items: ["Pens"] }
+];
+function mk(type, name, x, y, params = {}) { return { id: uid(), type, name, x, y, params: { ...defaults(type), ...params } }; }
+function link(a, b, out = 0, inp = 0) { return { id: uid(), from: a.id, out, to: b.id, in: inp }; }
+const TEMPLATES = {
+  orders: { name: "Order triage", blurb: "Split orders by size, tag them, and total revenue per queue.", build() {
+    const t = mk("manualTrigger", "When clicking Execute", 0, 140);
+    const d = mk("staticData", "Load orders", 270, 140, { json: JSON.stringify(ORDERS, null, 2) });
+    const f = mk("if", "Large order?", 540, 140, { conditions: [{ left: "{{ $json.total }}", op: "greater than", right: "150" }] });
+    const h = mk("set", "Priority queue", 810, 30, { fields: [{ name: "queue", value: "priority" }, { name: "note", value: "{{ $json.customer }} spent €{{ $json.total }}" }] });
+    const s = mk("set", "Standard queue", 810, 250, { fields: [{ name: "queue", value: "standard" }] });
+    const m = mk("merge", "Combine queues", 1080, 140);
+    const so = mk("sort", "Largest first", 1350, 140, { field: "total", order: "desc" });
+    const su = mk("summarize", "Revenue per queue", 1620, 140, { groupBy: "queue", op: "sum", field: "total" });
+    return { nodes: [t, d, f, h, s, m, so, su], connections: [link(t, d), link(d, f), link(f, h, 0), link(f, s, 1), link(h, m, 0, 0), link(s, m, 0, 1), link(m, so), link(so, su)] };
+  } },
+  digest: { name: "Signup digest", blurb: "Every few minutes, collect new Pro signups and build a digest.", build() {
+    const t = mk("schedule", "Every 5 minutes", 0, 120);
+    const d = mk("staticData", "New signups", 270, 120, { json: JSON.stringify([
+      { email: "noor@example.com", plan: "pro", signedUpAt: "2026-09-28T09:14:00Z" },
+      { email: "tomas@example.com", plan: "free", signedUpAt: "2026-09-28T11:02:00Z" },
+      { email: "ines@example.com", plan: "pro", signedUpAt: "2026-09-29T07:45:00Z" },
+      { email: "noor@example.com", plan: "pro", signedUpAt: "2026-09-28T09:14:00Z" }], null, 2) });
+    const dd = mk("dedupe", "Drop repeats", 540, 120, { field: "email" });
+    const fl = mk("filter", "Pro plan only", 810, 120, { conditions: [{ left: "{{ $json.plan }}", op: "equals", right: "pro" }] });
+    const dt = mk("dateTime", "Readable date", 1080, 120, { value: "{{ $json.signedUpAt }}", format: "datetime", out: "joined" });
+    const ag = mk("aggregate", "Build digest", 1350, 120, { field: "email", out: "proSignups" });
+    return { nodes: [t, d, dd, fl, dt, ag], connections: [link(t, d), link(d, dd), link(dd, fl), link(fl, dt), link(dt, ag)] };
+  } },
+  api: { name: "Fetch posts from an API", blurb: "Call a public JSON API, filter, and reshape the results.", build() {
+    const t = mk("manualTrigger", "When clicking Execute", 0, 120);
+    const h = mk("httpRequest", "Get posts", 270, 120, { url: "https://jsonplaceholder.typicode.com/posts" });
+    const f = mk("filter", "Author 1 only", 540, 120, { conditions: [{ left: "{{ $json.userId }}", op: "equals", right: "1" }] });
+    const l = mk("limit", "First 5", 810, 120, { max: 5 });
+    const s = mk("set", "Tidy fields", 1080, 120, { keepOnly: true, fields: [{ name: "id", value: "{{ $json.id }}" }, { name: "headline", value: "{{ $json.title }}" }] });
+    return { nodes: [t, h, f, l, s], connections: [link(t, h), link(h, f), link(f, l), link(l, s)] };
+  } },
+  blank: { name: "Blank workflow", blurb: "Start with just a Manual Trigger.", build() {
+    return { nodes: [mk("manualTrigger", "When clicking Execute", 0, 120)], connections: [] };
+  } }
+};
+
+/* ---------- state ---------- */
+let workflows = store.get("flowline.workflows", null);
+let currentId = store.get("flowline.current", null);
+let wf, view = { x: 60, y: 60, k: 1 }, sel = { node: null, edge: null };
+let runData = {}, running = false, runningNode = null, viewingExec = null, pendingConn = null, tempEdge = null;
+let inspTab = "params", dataMode = store.get("flowline.dataMode", "table"), outIdx = 0, lastField = null;
+const mem = { workflows: null };
+function newWorkflow(tpl) {
+  const t = TEMPLATES[tpl], b = t.build();
+  return { id: uid(), name: t.name, nodes: b.nodes, connections: b.connections, updatedAt: Date.now(), active: false };
+}
+if (!workflows || !Object.keys(workflows).length) {
+  const w = newWorkflow("orders"); workflows = { [w.id]: w }; currentId = w.id;
+}
+if (!workflows[currentId]) currentId = Object.keys(workflows)[0];
+wf = workflows[currentId];
+
+let saveT;
+function save(immediate) {
+  wf.updatedAt = Date.now();
+  $("#saved").textContent = "Saving…";
+  clearTimeout(saveT);
+  const go = () => { const ok = store.set("flowline.workflows", workflows) && store.set("flowline.current", currentId); $("#saved").textContent = ok ? "Saved" : "Not saved (storage unavailable)"; };
+  immediate ? go() : (saveT = setTimeout(go, 350));
+}
+const execKey = id => "flowline.exec." + id;
+const nodeById = id => wf.nodes.find(n => n.id === id);
+
+/* ---------- geometry ---------- */
+const canvas = $("#canvas"), world = $("#world"), edgesSvg = $("#edges"), nodesLayer = $("#nodesLayer");
+function applyView() {
+  world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
+  const g = 22 * view.k;
+  canvas.style.backgroundSize = `${g}px ${g}px`;
+  canvas.style.backgroundPosition = `${view.x}px ${view.y}px`;
+}
+function toWorld(cx, cy) { const r = canvas.getBoundingClientRect(); return { x: (cx - r.left - view.x) / view.k, y: (cy - r.top - view.y) / view.k }; }
+function outPos(n, i) { const T = TYPES[n.type], h = nodeH(T); return { x: n.x + NW, y: n.y + portY(T.outputs.length, i, h) }; }
+function inPos(n, i) { const T = TYPES[n.type], h = nodeH(T); return { x: n.x, y: n.y + portY(T.inputs, i, h) }; }
+function pathD(a, b) { const dx = Math.max(50, Math.abs(b.x - a.x) / 2); return `M${a.x} ${a.y} C${a.x + dx} ${a.y} ${b.x - dx} ${b.y} ${b.x} ${b.y}`; }
+function zoomAt(k, cx, cy) {
+  const r = canvas.getBoundingClientRect(); k = Math.min(2, Math.max(0.25, k));
+  const px = cx - r.left, py = cy - r.top;
+  view.x = px - (px - view.x) * (k / view.k); view.y = py - (py - view.y) * (k / view.k); view.k = k; applyView();
+}
+function fitView() {
+  const r = canvas.getBoundingClientRect();
+  if (!wf.nodes.length) { view = { x: r.width / 2 - NW / 2, y: r.height / 2 - 40, k: 1 }; applyView(); return; }
+  const xs = wf.nodes.map(n => n.x), ys = wf.nodes.map(n => n.y);
+  const x0 = Math.min(...xs) - 50, y0 = Math.min(...ys) - 50, x1 = Math.max(...xs) + NW + 50, y1 = Math.max(...wf.nodes.map(n => n.y + nodeH(TYPES[n.type])));
+  const k = Math.min(1.1, Math.max(0.25, Math.min(r.width / (x1 - x0), r.height / (y1 + 50 - y0))));
+  view = { k, x: (r.width - (x1 - x0) * k) / 2 - x0 * k, y: (r.height - (y1 + 50 - y0) * k) / 2 - y0 * k }; applyView();
+}
+
+/* ---------- rendering ---------- */
+function subtitle(n) { const T = TYPES[n.type]; try { return T.sub ? T.sub(n) : T.label; } catch { return T.label; } }
+function renderNodes() {
+  const frag = document.createDocumentFragment();
+  for (const n of wf.nodes) {
+    const T = TYPES[n.type], h = nodeH(T), rd = runData[n.id];
+    const el = document.createElement("div");
+    const st = runningNode === n.id ? "running" : rd ? rd.status : "";
+    el.className = `node cat-${T.cat}${T.inputs === 0 ? " trigger-node" : ""}${sel.node === n.id ? " selected" : ""}${n.disabled ? " disabled" : ""} ${st}`;
+    el.dataset.id = n.id; el.style.transform = `translate(${n.x}px,${n.y}px)`; el.style.height = h + "px";
+    let ports = "";
+    for (let i = 0; i < T.inputs; i++) ports += `<div class="port in" data-node="${n.id}" data-idx="${i}" style="top:${portY(T.inputs, i, h)}px">${T.inputLabels ? `<span class="p-label">${T.inputLabels[i]}</span>` : ""}</div>`;
+    T.outputs.forEach((o, i) => { ports += `<div class="port out" data-node="${n.id}" data-idx="${i}" style="top:${portY(T.outputs.length, i, h)}px" title="Drag to connect">${T.outputs.length > 1 ? `<span class="p-label">${esc(o)}</span>` : ""}</div>`; });
+    let flag = "";
+    if (rd && rd.status === "success") { const c = rd.outputs.reduce((a, o) => a + o.length, 0); flag = `<span class="n-flag">${c} item${c === 1 ? "" : "s"}</span>`; }
+    if (rd && rd.status === "error") flag = `<span class="n-flag">error</span>`;
+    el.innerHTML = `<div class="n-icon">${icon(T.icon)}</div><div class="n-text"><div class="n-name">${esc(n.name)}</div><div class="n-sub">${esc(subtitle(n))}</div></div>${flag}${ports}`;
+    frag.appendChild(el);
+  }
+  nodesLayer.replaceChildren(frag);
+  $("#emptyCanvas").innerHTML = wf.nodes.length ? "" : `<div class="empty-canvas"><div><b>Nothing here yet</b>Add a trigger to start, like Manual Trigger or Schedule Trigger.<br><br><button class="btn primary" id="emptyAdd">Add first node</button></div></div>`;
+  renderEdges();
+}
+function renderEdges() {
+  let html = "", ui = "";
+  for (const c of wf.connections) {
+    const a = nodeById(c.from), b = nodeById(c.to); if (!a || !b) continue;
+    const p1 = outPos(a, c.out), p2 = inPos(b, c.in), d = pathD(p1, p2);
+    const items = runData[c.from]?.outputs?.[c.out];
+    const active = items && items.length && runData[c.to];
+    html += `<path class="edge-hit" data-edge="${c.id}" d="${d}"/><path class="edge${active ? " active" : ""}${sel.edge === c.id ? " selected" : ""}" d="${d}"/>`;
+    const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+    if (items && runData[c.from].status === "success") html += `<text class="edge-label" x="${mx}" y="${my - 9}">${items.length} item${items.length === 1 ? "" : "s"}</text>`;
+    if (sel.edge === c.id) ui = `<button class="edge-del" id="edgeDel" style="left:${mx}px;top:${my}px" aria-label="Delete connection" title="Delete connection"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  }
+  if (tempEdge) html += `<path class="edge temp" d="${pathD(tempEdge.a, tempEdge.b)}"/>`;
+  edgesSvg.innerHTML = html; $("#edgeUi").innerHTML = ui;
+}
+function renderAll() { renderNodes(); renderInspector(); renderHeader(); renderViewing(); }
+function renderHeader() { $("#wfName").value = wf.name; $("#activeToggle").checked = !!wf.active; }
+function renderViewing() {
+  $("#viewing").innerHTML = viewingExec ? `<div class="viewing">Viewing run from ${new Date(viewingExec.at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "medium" })}<button class="btn sm" id="clearRun">Clear</button></div>` : "";
+}
+
+/* ---------- node library ---------- */
+function renderLib() {
+  const q = $("#libSearch").value.trim().toLowerCase();
+  let html = "";
+  for (const [cat, title] of CATS) {
+    const list = Object.entries(TYPES).filter(([k, T]) => T.cat === cat && (!q || (T.label + " " + T.desc).toLowerCase().includes(q)) && !(pendingConn && T.inputs === 0));
+    if (!list.length) continue;
+    html += `<div class="lib-group">${title}</div>` + list.map(([k, T]) => `<button class="lib-item cat-${T.cat}" data-type="${k}"><div class="n-icon">${icon(T.icon)}</div><div><b>${T.label}</b><span>${esc(T.desc)}</span></div></button>`).join("");
+  }
+  $("#libList").innerHTML = html || `<p class="desc" style="padding:0 8px">No nodes match “${esc(q)}”.</p>`;
+  $("#pendingNote").innerHTML = pendingConn ? `<div class="pending-note">Pick a node to connect after <b>${esc(nodeById(pendingConn.from)?.name)}</b><button class="icon-btn" id="cancelPending" aria-label="Cancel" style="margin-left:auto;padding:2px"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>` : "";
+}
+const isSmall = () => matchMedia("(max-width: 820px)").matches;
+function openLib() { $("#lib").classList.add("open"); renderLib(); if (!isSmall()) $("#libSearch").focus(); }
+function closeSheets() { $("#lib").classList.remove("open"); $("#insp").classList.remove("open"); }
+
+function uniqueName(base) {
+  const names = new Set(wf.nodes.map(n => n.name)); if (!names.has(base)) return base;
+  let i = 1; while (names.has(`${base} ${i}`)) i++; return `${base} ${i}`;
+}
+function addNode(type) {
+  const T = TYPES[type]; let x, y;
+  if (pendingConn) { x = pendingConn.x; y = pendingConn.y - nodeH(T) / 2; }
+  else if (sel.node && nodeById(sel.node)) { const s = nodeById(sel.node); x = s.x + NW + 62; y = s.y; }
+  else { const r = canvas.getBoundingClientRect(); const c = toWorld(r.left + r.width / 2, r.top + r.height / 2); x = c.x - NW / 2; y = c.y - 32; }
+  while (wf.nodes.some(n => Math.abs(n.x - x) < 40 && Math.abs(n.y - y) < 40)) { y += 90; }
+  const n = { id: uid(), type, name: uniqueName(T.label), x: Math.round(x), y: Math.round(y), params: defaults(type) };
+  wf.nodes.push(n);
+  const src = pendingConn ? pendingConn : (sel.node && nodeById(sel.node) && T.inputs && !wf.connections.some(c => c.from === sel.node) ? { from: sel.node, out: 0 } : null);
+  if (src && T.inputs) connect(src.from, src.out, n.id, 0, true);
+  pendingConn = null; sel = { node: n.id, edge: null }; inspTab = "params";
+  if (isSmall()) { $("#lib").classList.remove("open"); $("#insp").classList.add("open"); }
+  save(); renderAll(); renderLib();
+}
+function reaches(from, target, seen = new Set()) {
+  if (from === target) return true; if (seen.has(from)) return false; seen.add(from);
+  return wf.connections.some(c => c.from === from && reaches(c.to, target, seen));
+}
+function connect(from, out, to, inp, silent) {
+  if (from === to) return false;
+  if (wf.connections.some(c => c.from === from && c.out === out && c.to === to && c.in === inp)) return false;
+  if (reaches(to, from)) { if (!silent) toast("That connection would create a loop, so it wasn't added."); return false; }
+  wf.connections.push({ id: uid(), from, out, to, in: inp }); save(); return true;
+}
+function deleteNode(id) {
+  wf.nodes = wf.nodes.filter(n => n.id !== id); wf.connections = wf.connections.filter(c => c.from !== id && c.to !== id);
+  delete runData[id]; if (sel.node === id) sel.node = null; save(); renderAll();
+}
+function duplicateNode(id) {
+  const s = nodeById(id); if (!s) return;
+  const n = { ...clone(s), id: uid(), name: uniqueName(s.name), x: s.x + 30, y: s.y + 90 };
+  wf.nodes.push(n); sel = { node: n.id, edge: null }; save(); renderAll();
+}
+
+/* ---------- canvas interaction ---------- */
+let drag = null;
+canvas.addEventListener("pointerdown", e => {
+  if (e.button !== 0 || e.target.closest(".canvas-ctrl, .viewing, .empty-canvas button, #edgeDel")) return;
+  const out = e.target.closest(".port.out");
+  if (out) {
+    const n = nodeById(out.dataset.node);
+    drag = { type: "connect", from: n.id, out: +out.dataset.idx, sx: e.clientX, sy: e.clientY, moved: false };
+    e.preventDefault(); return;
+  }
+  const nodeEl = e.target.closest(".node");
+  if (nodeEl) {
+    const n = nodeById(nodeEl.dataset.id), p = toWorld(e.clientX, e.clientY);
+    const changed = sel.node !== n.id;
+    sel = { node: n.id, edge: null };
+    if (changed) { inspTab = viewTabFor(n); outIdx = 0; renderInspector(); }
+    nodesLayer.querySelectorAll(".node.selected").forEach(x => x.classList.remove("selected")); nodeEl.classList.add("selected");
+    if (sel.edge === null) renderEdges();
+    drag = { type: "node", id: n.id, el: nodeEl, dx: p.x - n.x, dy: p.y - n.y, sx: e.clientX, sy: e.clientY, moved: false };
+    return;
+  }
+  const hit = e.target.closest(".edge-hit");
+  if (hit) { sel = { node: null, edge: hit.dataset.edge }; renderNodes(); renderInspector(); return; }
+  drag = { type: "pan", sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false };
+  canvas.classList.add("panning");
+});
+window.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dist = Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy);
+  if (dist > 4) drag.moved = true;
+  if (drag.type === "pan") { view.x = drag.vx + e.clientX - drag.sx; view.y = drag.vy + e.clientY - drag.sy; applyView(); }
+  else if (drag.type === "node" && drag.moved) {
+    const n = nodeById(drag.id), p = toWorld(e.clientX, e.clientY);
+    n.x = Math.round((p.x - drag.dx) / 2) * 2; n.y = Math.round((p.y - drag.dy) / 2) * 2;
+    drag.el.style.transform = `translate(${n.x}px,${n.y}px)`; renderEdges();
+  } else if (drag.type === "connect") {
+    const n = nodeById(drag.from);
+    tempEdge = { a: outPos(n, drag.out), b: toWorld(e.clientX, e.clientY) };
+    document.querySelectorAll(".port.in.hot").forEach(x => x.classList.remove("hot"));
+    const hover = document.elementFromPoint(e.clientX, e.clientY)?.closest(".port.in"); if (hover) hover.classList.add("hot");
+    renderEdges();
+  }
+});
+window.addEventListener("pointerup", e => {
+  if (!drag) return;
+  const d = drag; drag = null; canvas.classList.remove("panning");
+  if (d.type === "pan" && !d.moved) {
+    if (sel.node || sel.edge) { sel = { node: null, edge: null }; renderNodes(); renderInspector(); }
+    if (isSmall()) closeSheets();
+  }
+  if (d.type === "node") {
+    if (d.moved) save();
+    else if (isSmall()) $("#insp").classList.add("open");
+  }
+  if (d.type === "connect") {
+    tempEdge = null; document.querySelectorAll(".port.in.hot").forEach(x => x.classList.remove("hot"));
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const port = under?.closest(".port.in"), nodeEl = under?.closest(".node");
+    if (port) { connect(d.from, d.out, port.dataset.node, +port.dataset.idx); renderNodes(); }
+    else if (nodeEl && nodeEl.dataset.id !== d.from && TYPES[nodeById(nodeEl.dataset.id).type].inputs) { connect(d.from, d.out, nodeEl.dataset.id, 0); renderNodes(); }
+    else {
+      const src = nodeById(d.from), p = d.moved ? toWorld(e.clientX, e.clientY) : { x: src.x + NW + 70, y: outPos(src, d.out).y };
+      pendingConn = { from: d.from, out: d.out, x: p.x, y: p.y }; renderEdges(); openLib();
+    }
+  }
+});
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) zoomAt(view.k * Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
+  else { view.x -= e.deltaX; view.y -= e.deltaY; applyView(); }
+}, { passive: false });
+canvas.addEventListener("dblclick", e => { if (!e.target.closest(".node, .canvas-ctrl, .port")) { pendingConn = null; openLib(); } });
+canvas.addEventListener("click", e => {
+  if (e.target.closest("#edgeDel")) { wf.connections = wf.connections.filter(c => c.id !== sel.edge); sel.edge = null; save(); renderNodes(); renderInspector(); }
+  if (e.target.closest("#clearRun")) { viewingExec = null; runData = {}; renderAll(); }
+  if (e.target.closest("#emptyAdd")) openLib();
+});
+$("#zoomIn").onclick = () => { const r = canvas.getBoundingClientRect(); zoomAt(view.k * 1.2, r.left + r.width / 2, r.top + r.height / 2); };
+$("#zoomOut").onclick = () => { const r = canvas.getBoundingClientRect(); zoomAt(view.k / 1.2, r.left + r.width / 2, r.top + r.height / 2); };
+$("#fitBtn").onclick = fitView;
+$("#addBtn").onclick = () => { pendingConn = null; openLib(); };
+$("#libSearch").addEventListener("input", renderLib);
+$("#lib").addEventListener("click", e => {
+  const it = e.target.closest(".lib-item"); if (it) addNode(it.dataset.type);
+  if (e.target.closest("#cancelPending")) { pendingConn = null; renderLib(); }
+});
+document.addEventListener("click", e => { const c = e.target.closest("[data-close]"); if (c) { $("#" + c.dataset.close).classList.remove("open"); if (c.dataset.close === "lib") { pendingConn = null; renderLib(); } } });
+
+/* ---------- inspector ---------- */
+function viewTabFor(n) { return runData[n.id] ? "output" : "params"; }
+function renderInspector() {
+  const insp = $("#insp");
+  const n = sel.node && nodeById(sel.node);
+  if (!n) { insp.innerHTML = workflowPanel(); return; }
+  const T = TYPES[n.type], rd = runData[n.id];
+  const outCount = rd?.outputs ? rd.outputs.reduce((a, o) => a + o.length, 0) : null;
+  const inCount = rd?.inputs ? rd.inputs.reduce((a, o) => a + (o?.length || 0), 0) : null;
+  insp.innerHTML = `
+    <div class="pane-head"><div class="n-icon cat-${T.cat}" style="width:30px;height:30px">${icon(T.icon)}</div>
+      <input class="name-input" id="nodeName" value="${esc(n.name)}" aria-label="Node name">
+      <button class="icon-btn" id="nDisable" title="${n.disabled ? "Enable node" : "Disable node (passes items through)"}" aria-label="Toggle disabled"><svg class="i" viewBox="0 0 24 24">${n.disabled ? '<path d="M8 5v14l11-7z"/>' : '<path d="M9 6v12M15 6v12"/>'}</svg></button>
+      <button class="icon-btn" id="nDup" title="Duplicate (Ctrl+D)" aria-label="Duplicate"><svg class="i" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 4.5H6.5a2 2 0 0 0-2 2V16"/></svg></button>
+      <button class="icon-btn" id="nDel" title="Delete (Del)" aria-label="Delete node"><svg class="i" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/></svg></button>
+      <button class="icon-btn" id="nClose" title="Close" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="type-line">${T.label}${n.disabled ? " · disabled" : ""}</div>
+    <div class="tabs" role="tablist">
+      <button class="tab ${inspTab === "params" ? "on" : ""}" data-tab="params">Parameters</button>
+      ${T.inputs ? `<button class="tab ${inspTab === "input" ? "on" : ""}" data-tab="input">Input${inCount != null ? `<span class="cnt">${inCount}</span>` : ""}</button>` : ""}
+      <button class="tab ${inspTab === "output" ? "on" : ""}" data-tab="output">Output${outCount != null ? `<span class="cnt">${outCount}</span>` : ""}</button>
+    </div>
+    <div class="insp-body" id="inspBody">${inspTab === "params" ? paramsHtml(n) : inspTab === "input" ? dataHtml(n, "input") : dataHtml(n, "output")}</div>`;
+}
+function fieldHtml(n, p) {
+  const v = n.params[p.key], id = `p_${p.key}`;
+  const exprCls = p.noExpr ? "" : " expr";
+  let ctl = "";
+  if (p.type === "string") ctl = `<input class="inp${exprCls}" id="${id}" data-key="${p.key}" value="${esc(v)}" placeholder="${esc(p.placeholder || "")}">`;
+  else if (p.type === "number") ctl = `<input class="inp" type="number" id="${id}" data-key="${p.key}" value="${esc(v)}" data-num="1">`;
+  else if (p.type === "select") ctl = `<select class="inp" id="${id}" data-key="${p.key}" data-rerender="1">${p.options.map((o, i) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(p.labels ? p.labels[i] : o)}</option>`).join("")}</select>`;
+  else if (p.type === "boolean") return `<div class="field"><label class="switch" style="color:var(--fg);font-weight:600;font-size:12.5px"><input type="checkbox" id="${id}" data-key="${p.key}" data-bool="1" ${v ? "checked" : ""}>${esc(p.label)}</label>${p.help ? `<div class="help">${p.help}</div>` : ""}</div>`;
+  else if (p.type === "code") ctl = `<textarea class="inp" id="${id}" data-key="${p.key}" rows="${p.rows || 8}" spellcheck="false">${esc(v)}</textarea>`;
+  else if (p.type === "kv") ctl = `<div class="rows">${(v || []).map((r, i) => `<div class="row"><input class="inp" id="${id}_n${i}" data-list="${p.key}" data-i="${i}" data-f="name" value="${esc(r.name)}" placeholder="${p.nameLabel}" aria-label="${p.nameLabel}"><input class="inp expr" id="${id}_v${i}" data-list="${p.key}" data-i="${i}" data-f="value" value="${esc(r.value)}" placeholder="${p.valueLabel}" aria-label="${p.valueLabel}"><button class="icon-btn" data-rm="${p.key}" data-i="${i}" aria-label="Remove row"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join("")}<button class="btn sm add-row" data-add="${p.key}">+ Add ${p.nameLabel.toLowerCase()}</button></div>`;
+  else if (p.type === "conditions") ctl = `<div class="rows">${(v || []).map((r, i) => `<div class="row cond"><input class="inp expr" id="${id}_l${i}" data-list="${p.key}" data-i="${i}" data-f="left" value="${esc(r.left)}" placeholder="{{ $json.field }}" aria-label="Value"><select class="inp" id="${id}_o${i}" data-list="${p.key}" data-i="${i}" data-f="op" data-rerender="1" aria-label="Comparison">${OPS.map(o => `<option ${o === r.op ? "selected" : ""}>${o}</option>`).join("")}</select><input class="inp expr" id="${id}_r${i}" data-list="${p.key}" data-i="${i}" data-f="right" value="${esc(r.right)}" ${UNARY.has(r.op) ? "disabled" : ""} placeholder="Compare to" aria-label="Compare to"><button class="icon-btn" data-rm="${p.key}" data-i="${i}" aria-label="Remove condition"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join("")}<button class="btn sm add-row" data-add="${p.key}">+ Add condition</button></div>`;
+  return `<div class="field"><label for="${id}">${esc(p.label)}</label>${ctl}${p.help ? `<div class="help">${p.help}</div>` : ""}</div>`;
+}
+function paramsHtml(n) {
+  const T = TYPES[n.type];
+  let html = `<p class="desc">${esc(T.desc)}</p>`;
+  html += T.params.filter(p => !p.showIf || p.showIf(n.params)).map(p => fieldHtml(n, p)).join("");
+  if (!T.params.length) html += `<div class="callout">This node has no settings.</div>`;
+  if (T.params.some(p => !p.noExpr && ["string", "kv", "conditions", "code"].includes(p.type)))
+    html += `<div class="callout">Wrap JavaScript in <code>{{ }}</code> to use incoming data, for example <code>{{ $json.email }}</code>. Open the Input tab after a run and click a column name to insert it.${CAN_EVAL ? "" : " This viewer supports field paths only."}</div>`;
+  if (n.type === "httpRequest") html += `<div class="callout">The hosted Flowline page can't reach other websites. To call real APIs, open Flowline from its HTML file on your computer.</div>`;
+  if (n.type === "schedule") html += `<div class="callout">Switch on <b>Active</b> in the top bar to run this on its interval. It only runs while this tab stays open.</div>`;
+  return html;
+}
+function jsonHtml(v) {
+  return esc(JSON.stringify(v, null, 2)).replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)(\s*:)?|\b(true|false|null)\b|(-?\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b)/g,
+    (m, s, colon, b, num) => s ? (colon ? `<span class="j-k">${s}</span>${colon}` : `<span class="j-s">${s}</span>`) : b ? `<span class="j-b">${b}</span>` : `<span class="j-n">${num}</span>`);
+}
+function tableHtml(items, pick) {
+  if (!items.length) return `<div class="nodata">No items.</div>`;
+  const shown = items.slice(0, 200), cols = [];
+  shown.forEach(it => Object.keys(it.json || {}).forEach(k => { if (!cols.includes(k)) cols.push(k); }));
+  const cell = v => v == null ? `<span style="color:var(--faint)">–</span>` : esc(typeof v === "object" ? JSON.stringify(v) : String(v));
+  if (!cols.length) return `<div class="nodata">${items.length} empty item${items.length === 1 ? "" : "s"}.</div>`;
+  return `<div class="tbl-wrap"><table class="data"><thead><tr><th class="idx">#</th>${cols.map(c => `<th${pick ? ` class="pick" data-pick="${esc(c)}" title="Insert {{ $json.${esc(c)} }}"` : ""}>${esc(c)}</th>`).join("")}</tr></thead><tbody>${shown.map((it, i) => `<tr><td class="idx">${i + 1}</td>${cols.map(c => `<td title="${esc(typeof it.json[c] === "object" ? JSON.stringify(it.json[c]) : it.json[c] ?? "")}">${cell(it.json[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${items.length > 200 ? `<div class="help" style="margin-top:6px">Showing the first 200 of ${items.length} items.</div>` : ""}`;
+}
+function dataHtml(n, which) {
+  const T = TYPES[n.type], rd = runData[n.id];
+  if (!rd) return `<div class="nodata">Run the workflow to see ${which === "input" ? "the data coming into" : "what comes out of"} this node.<br><br><button class="btn primary sm" data-exec="1">Execute workflow</button></div>`;
+  if (which === "output" && rd.status === "error") return `<div class="err-box"><b>This node failed.</b><br>${esc(rd.error)}</div>`;
+  const groups = which === "input" ? (T.inputLabels || ["Input"]).map((l, i) => [T.inputs > 1 ? `Input ${l}` : l, rd.inputs?.[i] || []]) : T.outputs.map((l, i) => [T.outputs.length > 1 ? l : "Output", rd.outputs?.[i] || []]);
+  const idx = Math.min(outIdx, groups.length - 1), items = groups[idx][1];
+  return `<div class="data-bar">
+    ${groups.length > 1 ? `<div class="seg">${groups.map((g, i) => `<button data-oi="${i}" class="${i === idx ? "on" : ""}">${esc(g[0])} <span class="cnt">${g[1].length}</span></button>`).join("")}</div>` : ""}
+    <span class="meta">${items.length} item${items.length === 1 ? "" : "s"}${which === "output" && rd.ms != null ? ` · ${rd.ms < 1000 ? Math.round(rd.ms) + " ms" : (rd.ms / 1000).toFixed(1) + " s"}` : ""}${rd.truncated ? " · trimmed in history" : ""}</span>
+    <span class="spacer"></span>
+    <div class="seg"><button data-mode="table" class="${dataMode === "table" ? "on" : ""}">Table</button><button data-mode="json" class="${dataMode === "json" ? "on" : ""}">JSON</button></div></div>
+    ${dataMode === "json" ? `<pre class="json">${jsonHtml(items.slice(0, 200).map(i => i.json))}</pre>` : tableHtml(items, which === "input")}
+    ${which === "input" ? `<div class="help" style="margin-top:8px">Click a column name to insert it into the last field you edited.</div>` : ""}`;
+}
+function workflowPanel() {
+  const execs = store.get(execKey(wf.id), []);
+  const counts = CATS.map(([c, t]) => [t, wf.nodes.filter(n => TYPES[n.type].cat === c).length]).filter(x => x[1]);
+  return `<div class="pane-head"><h2>Workflow</h2><button class="icon-btn close-sheet" data-close="insp" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="insp-body">
+    <dl class="kv-list"><dt>Nodes</dt><dd>${wf.nodes.length}${counts.length ? ` (${counts.map(c => `${c[1]} ${c[0].toLowerCase()}`).join(", ")})` : ""}</dd><dt>Connections</dt><dd>${wf.connections.length}</dd>
+    <dt>Schedule</dt><dd>${wf.nodes.some(n => n.type === "schedule") ? (wf.active ? "Active while this tab is open" : "Off") : "No Schedule Trigger"}</dd><dt>Last edit</dt><dd>${new Date(wf.updatedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</dd></dl>
+    <div class="sec-title">Executions</div>
+    ${execs.length ? `<div class="exec-list">${execs.map(x => `<button class="exec ${viewingExec?.id === x.id ? "on" : ""}" data-execid="${x.id}"><span class="pill ${x.status === "success" ? "ok" : "err"}">${x.status === "success" ? "ok" : "error"}</span><span>${new Date(x.at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}<small>${x.mode} · ${x.nodes} node${x.nodes === 1 ? "" : "s"} ran${x.error ? " · " + esc(x.error.node) : ""}</small></span><span class="meta" style="color:var(--muted);font-size:12px">${x.ms < 1000 ? Math.round(x.ms) + " ms" : (x.ms / 1000).toFixed(1) + " s"}</span></button>`).join("")}</div>
+      <button class="btn sm ghost" id="clearExecs" style="margin-top:8px">Clear history</button>` : `<p class="desc">No runs yet. Click <b>Execute</b> to run the workflow and inspect each node's data.</p>`}
+    <div class="sec-title">Expressions</div>
+    <div class="cheat"><b>{{ $json.total }}</b> field of the current item<br><b>{{ $json.items.length }}</b> any JavaScript<br><b>{{ $index }}</b> position of the item<br><b>{{ $now }}</b> current time, ISO format<br><b>{{ $node["Load orders"].json }}</b> another node's first item</div>
+    <div class="sec-title">Shortcuts</div>
+    <div class="cheat"><b>Ctrl+Enter</b> execute · <b>Del</b> remove selection<br><b>Ctrl+D</b> duplicate node · <b>Double-click canvas</b> add node<br><b>Ctrl+scroll</b> zoom · <b>Drag canvas</b> pan</div>
+  </div>`;
+}
+const insp = $("#insp");
+insp.addEventListener("input", e => {
+  const n = sel.node && nodeById(sel.node); if (!n) return;
+  const t = e.target;
+  if (t.id === "nodeName") { n.name = t.value || TYPES[n.type].label; save(); updateNodeEl(n); return; }
+  if (t.dataset.key && !t.dataset.rerender && !t.dataset.bool) { n.params[t.dataset.key] = t.dataset.num ? (t.value === "" ? 0 : +t.value) : t.value; save(); updateNodeEl(n); }
+  if (t.dataset.list && t.tagName !== "SELECT") { n.params[t.dataset.list][+t.dataset.i][t.dataset.f] = t.value; save(); updateNodeEl(n); }
+});
+insp.addEventListener("change", e => {
+  const n = sel.node && nodeById(sel.node); if (!n) return;
+  const t = e.target;
+  if (t.id === "nodeName") { n.name = uniqueNameFor(n, t.value.trim() || TYPES[n.type].label); t.value = n.name; save(); updateNodeEl(n); return; }
+  if (t.dataset.bool) { n.params[t.dataset.key] = t.checked; save(); updateNodeEl(n); }
+  else if (t.dataset.key && t.dataset.rerender) { n.params[t.dataset.key] = t.value; save(); updateNodeEl(n); renderInspector(); }
+  else if (t.dataset.list && t.tagName === "SELECT") { n.params[t.dataset.list][+t.dataset.i][t.dataset.f] = t.value; save(); updateNodeEl(n); renderInspector(); }
+});
+insp.addEventListener("focusin", e => { if (e.target.matches("input.inp, textarea.inp")) lastField = e.target.id; });
+insp.addEventListener("click", e => {
+  const n = sel.node && nodeById(sel.node), t = e.target;
+  const tab = t.closest("[data-tab]"); if (tab) { inspTab = tab.dataset.tab; outIdx = 0; renderInspector(); return; }
+  const oi = t.closest("[data-oi]"); if (oi) { outIdx = +oi.dataset.oi; renderInspector(); return; }
+  const md = t.closest("[data-mode]"); if (md) { dataMode = md.dataset.mode; store.set("flowline.dataMode", dataMode); renderInspector(); return; }
+  if (t.closest("[data-exec]")) { runManual(); return; }
+  const ex = t.closest("[data-execid]"); if (ex) { loadExec(ex.dataset.execid); return; }
+  if (t.closest("#clearExecs")) { store.del(execKey(wf.id)); viewingExec = null; runData = {}; renderAll(); return; }
+  if (!n) return;
+  const add = t.closest("[data-add]"); if (add) { const k = add.dataset.add; const p = TYPES[n.type].params.find(p => p.key === k); n.params[k] = [...(n.params[k] || []), p.type === "conditions" ? { left: "", op: "equals", right: "" } : { name: "", value: "" }]; save(); renderInspector(); updateNodeEl(n); return; }
+  const rm = t.closest("[data-rm]"); if (rm) { n.params[rm.dataset.rm].splice(+rm.dataset.i, 1); save(); renderInspector(); updateNodeEl(n); return; }
+  const pick = t.closest("[data-pick]"); if (pick) { insertExpr(`{{ $json${/^[A-Za-z_$][\w$]*$/.test(pick.dataset.pick) ? "." + pick.dataset.pick : `["${pick.dataset.pick}"]`} }}`); return; }
+  if (t.closest("#nDel")) { deleteNode(n.id); if (isSmall()) closeSheets(); return; }
+  if (t.closest("#nDup")) { duplicateNode(n.id); return; }
+  if (t.closest("#nDisable")) { n.disabled = !n.disabled; save(); renderAll(); return; }
+  if (t.closest("#nClose")) { sel.node = null; renderNodes(); renderInspector(); if (isSmall()) closeSheets(); }
+});
+function uniqueNameFor(n, name) { const others = new Set(wf.nodes.filter(x => x !== n).map(x => x.name)); if (!others.has(name)) return name; let i = 1; while (others.has(`${name} ${i}`)) i++; return `${name} ${i}`; }
+function insertExpr(text) {
+  const el = lastField && document.getElementById(lastField);
+  if (!el || el.disabled) { copyText(text); toast(`Copied ${text}. Click into a field first to insert it directly.`); return; }
+  inspTab = "params";
+  const s = el.selectionStart ?? el.value.length, en = el.selectionEnd ?? el.value.length;
+  const val = el.value.slice(0, s) + text + el.value.slice(en);
+  const n = nodeById(sel.node);
+  if (el.dataset.list) n.params[el.dataset.list][+el.dataset.i][el.dataset.f] = val; else if (el.dataset.key) n.params[el.dataset.key] = val;
+  save(); renderInspector(); updateNodeEl(n);
+  const again = document.getElementById(lastField); if (again) { again.focus(); again.setSelectionRange?.(s + text.length, s + text.length); }
+  toast(`Inserted ${text}`);
+}
+function updateNodeEl(n) {
+  const el = nodesLayer.querySelector(`.node[data-id="${n.id}"]`); if (!el) return;
+  el.querySelector(".n-name").textContent = n.name; el.querySelector(".n-sub").textContent = subtitle(n);
+}
+
+/* ---------- execution engine ---------- */
+async function execute(startIds, mode) {
+  if (running || !startIds.length) return;
+  running = true; viewingExec = null; runData = {}; setExecBtn();
+  const t0 = performance.now();
+  const incoming = id => wf.connections.filter(c => c.to === id);
+  const pending = new Set(startIds), done = new Set(), inputs = {};
+  const canStill = (id, seen = new Set()) => { if (pending.has(id)) return true; if (done.has(id) || seen.has(id)) return false; seen.add(id); return incoming(id).some(c => canStill(c.from, seen)); };
+  const nodeRef = new Proxy({}, { get: (_, name) => { const n = wf.nodes.find(x => x.name === name); const o = n && runData[n.id]?.outputs; const all = o ? o.flat() : []; return { json: all[0]?.json, items: all.map(i => i.json) }; } });
+  let error = null;
+  renderAll();
+  while (pending.size) {
+    let next = [...pending].find(id => incoming(id).every(c => !canStill(c.from)));
+    if (!next) next = pending.values().next().value;
+    pending.delete(next);
+    const node = nodeById(next); if (!node) continue;
+    const T = TYPES[node.type], ins = inputs[next] || [];
+    runningNode = next; renderNodes();
+    const st = performance.now();
+    const all = () => (ins[0] || []).concat(...ins.slice(1).filter(Boolean).map(x => T.inputs > 1 ? [] : x));
+    const nowIso = new Date().toISOString();
+    const scope = (item, i) => { const list = all(); return { $json: item?.json ?? {}, $index: i ?? 0, $items: list.map(x => x.json), $now: nowIso, $today: nowIso.slice(0, 10), $node: nodeRef }; };
+    const ctx = {
+      items: all, input: i => ins[i] || [], nodeRef,
+      raw: k => node.params[k],
+      resolve: (v, item, i) => resolve(v, scope(item, i)),
+      p: (k, item, i) => resolve(node.params[k], scope(item, i))
+    };
+    try {
+      let outs;
+      if (node.disabled) outs = [T.inputs ? ins.flat().filter(Boolean) : [{ json: {} }]];
+      else outs = await T.run(ctx);
+      outs = T.outputs.map((_, i) => (outs[i] || []).map(toItem));
+      runData[next] = { status: "success", outputs: outs, inputs: ins, ms: performance.now() - st };
+      done.add(next);
+      for (const c of wf.connections.filter(c => c.from === next)) {
+        const items = outs[c.out] || []; if (!items.length) continue;
+        const buf = inputs[c.to] || (inputs[c.to] = []);
+        buf[c.in] = (buf[c.in] || []).concat(clone(items)); pending.add(c.to);
+      }
+    } catch (e) {
+      runData[next] = { status: "error", error: e.message || String(e), inputs: ins, outputs: T.outputs.map(() => []), ms: performance.now() - st };
+      done.add(next); error = { node: node.name, message: e.message || String(e) }; break;
+    }
+    runningNode = null; renderNodes();
+    if (sel.node === next || !sel.node) renderInspector();
+  }
+  runningNode = null; running = false;
+  const ms = performance.now() - t0;
+  const rec = { id: uid(), at: Date.now(), mode, ms, status: error ? "error" : "success", error, nodes: Object.keys(runData).length, runData: trimRun(runData) };
+  const hist = [rec, ...store.get(execKey(wf.id), [])].slice(0, 25);
+  if (!store.set(execKey(wf.id), hist)) store.set(execKey(wf.id), hist.slice(0, 5));
+  const n = sel.node && nodeById(sel.node); if (n && runData[n.id] && inspTab === "params" && mode === "manual") inspTab = "output";
+  setExecBtn(); renderAll();
+  if (error) toast(`${error.node} failed: ${error.message.slice(0, 140)}`);
+  else if (mode === "manual") toast(`Workflow ran in ${ms < 1000 ? Math.round(ms) + " ms" : (ms / 1000).toFixed(1) + " s"}`);
+}
+function trimRun(rd) {
+  const out = {};
+  for (const [id, r] of Object.entries(rd)) {
+    const cut = arr => (arr || []).map(o => o ? o.slice(0, 50) : []);
+    const truncated = [...(r.outputs || []), ...(r.inputs || [])].some(o => o && o.length > 50);
+    out[id] = { ...r, outputs: cut(r.outputs), inputs: cut(r.inputs), truncated };
+  }
+  return out;
+}
+function runManual() {
+  const manual = wf.nodes.filter(n => n.type === "manualTrigger").map(n => n.id);
+  const triggers = manual.length ? manual : wf.nodes.filter(n => TYPES[n.type].inputs === 0).map(n => n.id);
+  if (!triggers.length) { toast("Add a trigger node first, like Manual Trigger."); return; }
+  execute(triggers, "manual");
+}
+function setExecBtn() { const b = $("#execBtn"); b.disabled = running; b.querySelector("span").textContent = running ? "Running…" : "Execute"; }
+function loadExec(id) {
+  const x = store.get(execKey(wf.id), []).find(e => e.id === id); if (!x) return;
+  viewingExec = x; runData = clone(x.runData); renderAll();
+}
+$("#execBtn").onclick = runManual;
+
+/* ---------- schedules ---------- */
+let timers = [];
+function syncSchedules() {
+  timers.forEach(clearInterval); timers = [];
+  if (!wf.active) return;
+  for (const n of wf.nodes.filter(n => n.type === "schedule")) {
+    const ms = Math.max(5, +n.params.every || 1) * ({ seconds: 1e3, minutes: 6e4, hours: 36e5 })[n.params.unit];
+    timers.push(setInterval(() => { if (!running) execute([n.id], "schedule"); }, Math.max(ms, 5000)));
+  }
+}
+$("#activeToggle").addEventListener("change", e => {
+  if (e.target.checked && !wf.nodes.some(n => n.type === "schedule")) { e.target.checked = false; toast("Add a Schedule Trigger to run this workflow automatically."); return; }
+  wf.active = e.target.checked; save(); syncSchedules(); renderInspector();
+  toast(wf.active ? "Active. Schedule triggers run while this tab stays open." : "Schedules stopped.");
+});
+
+/* ---------- workflows menu ---------- */
+function switchTo(id) {
+  currentId = id; wf = workflows[id]; sel = { node: null, edge: null }; runData = {}; viewingExec = null; pendingConn = null;
+  save(true); syncSchedules(); renderAll(); renderLib(); fitView();
+}
+function renderMenu() {
+  const list = Object.values(workflows).sort((a, b) => b.updatedAt - a.updatedAt);
+  $("#wfMenu").innerHTML = `<h6>Your workflows</h6>${list.map(w => `<button data-wf="${w.id}" class="${w.id === wf.id ? "current" : ""}">${esc(w.name)}</button>`).join("")}
+    <hr><h6>New from template</h6>${Object.entries(TEMPLATES).map(([k, t]) => `<button data-tpl="${k}" title="${esc(t.blurb)}">${esc(t.name)}</button>`).join("")}
+    <hr><button data-act="dup">Duplicate this workflow</button><button data-act="io">Import or export JSON</button><button data-act="del" style="color:var(--err)">Delete this workflow</button>`;
+}
+$("#wfMenuBtn").onclick = e => { e.stopPropagation(); const m = $("#wfMenu"); m.hidden = !m.hidden; if (!m.hidden) renderMenu(); };
+document.addEventListener("pointerdown", e => { if (!e.target.closest(".menu-wrap")) $("#wfMenu").hidden = true; });
+$("#wfMenu").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return; $("#wfMenu").hidden = true;
+  if (b.dataset.wf) switchTo(b.dataset.wf);
+  else if (b.dataset.tpl) { const w = newWorkflow(b.dataset.tpl); workflows[w.id] = w; switchTo(w.id); toast(`Created “${w.name}”`); }
+  else if (b.dataset.act === "dup") { const w = { ...clone(wf), id: uid(), name: wf.name + " copy", active: false, updatedAt: Date.now() }; workflows[w.id] = w; switchTo(w.id); toast("Duplicated"); }
+  else if (b.dataset.act === "io") openIO();
+  else if (b.dataset.act === "del") confirmModal(`Delete “${wf.name}”?`, "The workflow and its run history will be removed from this browser.", "Delete", () => {
+    store.del(execKey(wf.id)); delete workflows[wf.id];
+    if (!Object.keys(workflows).length) { const w = newWorkflow("blank"); workflows[w.id] = w; }
+    switchTo(Object.keys(workflows)[0]); toast("Workflow deleted");
+  });
+});
+$("#wfName").addEventListener("input", e => { wf.name = e.target.value || "Untitled workflow"; save(); });
+
+/* ---------- modals, import/export ---------- */
+function modal(title, body, actions) {
+  $("#modalRoot").innerHTML = `<div class="scrim" id="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h3>${esc(title)}</h3><div class="m-body">${body}</div><div class="m-actions">${actions.map((a, i) => `<button class="btn ${a.cls || ""}" data-a="${i}">${a.label}</button>`).join("")}</div></div></div>`;
+  $("#scrim").addEventListener("click", e => { if (e.target.id === "scrim") closeModal(); const b = e.target.closest("[data-a]"); if (b) actions[+b.dataset.a].run(); });
+}
+const closeModal = () => { $("#modalRoot").innerHTML = ""; };
+function confirmModal(title, text, label, fn) { modal(title, `<p>${esc(text)}</p>`, [{ label: "Cancel", run: closeModal }, { label, cls: "primary", run: () => { closeModal(); fn(); } }]); }
+function openIO() {
+  const data = JSON.stringify({ flowline: 1, name: wf.name, nodes: wf.nodes, connections: wf.connections }, null, 2);
+  modal("Import or export", `<p>Copy this JSON to back up or share the workflow. To import, paste workflow JSON over it or choose a file, then click Import.</p>
+    <textarea class="inp" id="ioText" rows="14" spellcheck="false" style="width:100%">${esc(data)}</textarea>
+    <div style="margin-top:8px"><label class="btn sm" style="display:inline-flex">Choose file<input type="file" id="ioFile" accept=".json,application/json" hidden></label></div>`,
+    [{ label: "Close", run: closeModal }, { label: "Copy JSON", run: () => copyText(data).then(() => toast("Copied workflow JSON")) }, { label: "Import as new workflow", cls: "primary", run: doImport }]);
+  $("#ioFile").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { $("#ioText").value = r.result; }; r.readAsText(f); });
+}
+function doImport() {
+  let d; try { d = JSON.parse($("#ioText").value); } catch (e) { toast(`That isn't valid JSON: ${e.message}`); return; }
+  if (!Array.isArray(d.nodes) || !Array.isArray(d.connections)) { toast("Workflow JSON needs “nodes” and “connections” lists."); return; }
+  const bad = d.nodes.find(n => !TYPES[n.type]); if (bad) { toast(`Unknown node type “${bad.type}”.`); return; }
+  const idMap = {}; const nodes = d.nodes.map(n => { const id = uid(); idMap[n.id] = id; return { id, type: n.type, name: String(n.name || TYPES[n.type].label), x: +n.x || 0, y: +n.y || 0, params: { ...defaults(n.type), ...(n.params || {}) }, disabled: !!n.disabled }; });
+  const connections = d.connections.filter(c => idMap[c.from] && idMap[c.to]).map(c => ({ id: uid(), from: idMap[c.from], out: +c.out || 0, to: idMap[c.to], in: +c.in || 0 }));
+  const w = { id: uid(), name: String(d.name || "Imported workflow"), nodes, connections, updatedAt: Date.now(), active: false };
+  workflows[w.id] = w; closeModal(); switchTo(w.id); toast(`Imported “${w.name}”`);
+}
+$("#ioBtn").onclick = openIO;
+$("#runsBtn").onclick = () => { sel.node = null; renderNodes(); renderInspector(); $("#lib").classList.remove("open"); $("#insp").classList.toggle("open"); };
+function copyText(t) {
+  return navigator.clipboard?.writeText(t).catch(() => { const a = $("#ioText"); if (a) { a.focus(); a.select(); } toast("Copy blocked here. The text is selected, so press Ctrl+C."); }) || Promise.resolve();
+}
+let toastT;
+function toast(msg) {
+  let el = $(".toast"); if (!el) { el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status"); document.body.appendChild(el); }
+  el.textContent = msg; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3200);
+}
+
+/* ---------- keyboard ---------- */
+document.addEventListener("keydown", e => {
+  const typing = e.target.closest("input, textarea, select");
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runManual(); return; }
+  if (e.key === "Escape") { if ($("#modalRoot").innerHTML) closeModal(); else { pendingConn = null; sel = { node: null, edge: null }; closeSheets(); renderNodes(); renderInspector(); renderLib(); } return; }
+  if (typing) return;
+  if (e.key === "Delete" || e.key === "Backspace") {
+    if (sel.node) { e.preventDefault(); deleteNode(sel.node); }
+    else if (sel.edge) { e.preventDefault(); wf.connections = wf.connections.filter(c => c.id !== sel.edge); sel.edge = null; save(); renderNodes(); }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d" && sel.node) { e.preventDefault(); duplicateNode(sel.node); }
+});
+
+/* ---------- boot ---------- */
+renderLib(); renderAll(); syncSchedules();
+requestAnimationFrame(() => { fitView(); applyView(); });
+window.addEventListener("resize", () => { if (!isSmall()) closeSheets(); });
+</script>
